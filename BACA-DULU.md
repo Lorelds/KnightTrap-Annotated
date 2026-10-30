@@ -1,6 +1,6 @@
 # Knight Trap — Versi Beranotasi (untuk belajar)
 
-Repo ini adalah **salinan kode Knight Trap yang sama persis**, tetapi setiap baris kode diberi penjelasan dalam bahasa Indonesia. Pakai repo ini untuk belajar dan persiapan presentasi. Untuk menjalankan dan deploy game, tetap pakai repo asli `KnightTrap`.
+Repo ini adalah **salinan kode Knight Trap yang sama persis**, tetapi setiap baris kode diberi penjelasan dalam bahasa Indonesia. Pakai repo ini untuk belajar dan persiapan presentasi. Untuk menjalankan dan deploy game, tetap pakai repo asli [`KnightTrap`](https://github.com/Lorelds/KnightTrap).
 
 ## Cara membaca
 
@@ -29,7 +29,7 @@ Repo ini adalah **salinan kode Knight Trap yang sama persis**, tetapi setiap bar
   - `package.json`: nama proyek, `"type": "module"` (semua file .js memakai `import`/`export`), dan satu dependency `@upstash/redis` (database leaderboard).
   - `vercel.json`: Vercel menyajikan folder apa adanya tanpa build; file di `/js` dikirim dengan tipe JavaScript; header keamanan `nosniff`.
   - `package-lock.json`: dibuat otomatis oleh npm untuk mengunci versi dependency.
-- `README.md`: dokumentasi asli (bahasa Inggris), tidak diubah.
+- `README.md`: dokumentasi asli (bahasa Inggris), hanya ditambah satu catatan di bagian paling atas yang menunjuk ke file ini.
 
 ## Bukti kodenya sama persis
 
@@ -56,7 +56,7 @@ python build.py            # semua guide
 python build.py louis      # satu guide saja
 ```
 
-Potongan kode di PDF diambil otomatis dari repo asli `../KnightTrap`, jadi nomor barisnya selalu cocok dengan kode yang dijalankan.
+Potongan kode di PDF diambil otomatis dari repo asli, yang harus di-clone di sebelah folder ini sebagai `../KnightTrap`, jadi nomor barisnya selalu cocok dengan kode yang dijalankan.
 
 ## Menjalankan game dari repo ini
 
