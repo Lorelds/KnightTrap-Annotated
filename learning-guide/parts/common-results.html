@@ -1,0 +1,44 @@
+<h2>Hasil Pengujian (Proposal Bab 2.2)</h2>
+<p>Semua angka di bawah berasal dari <code>node tests/run.mjs</code> (run penuh: 100 game per level per lawan). Hasil akhir run: <b>927 cek lulus, 0 gagal</b>. Jalankan sendiri sebelum presentasi supaya kamu tahu prosesnya: <code>node tests/run.mjs --quick</code> (±30 detik) atau tanpa <code>--quick</code> (±5 menit).</p>
+
+<h3>1. Kebenaran Alpha-Beta (Tabel 2.2.3, baris 1)</h3>
+<p>30 posisi uji dibuat dari permainan acak 4–8 giliran dengan seed <code>20261028 + k</code> (bisa diulang siapa pun). Alpha-Beta dan Minimax biasa memakai evaluasi, urutan langkah, dan tanpa batas waktu yang sama; bedanya hanya pemangkasan.</p>
+<table class="t">
+  <tr><th>Depth</th><th>Skor identik</th><th>Langkah identik</th><th>Node Minimax</th><th>Node Alpha-Beta</th><th>Hemat</th><th>Cutoff</th><th>ms Minimax</th><th>ms Alpha-Beta</th></tr>
+  <tr><td>1</td><td>30/30</td><td>30/30</td><td class="n">872</td><td class="n">872</td><td class="n">0,0%</td><td class="n">0</td><td class="n">10</td><td class="n">6</td></tr>
+  <tr><td>2</td><td>30/30</td><td>30/30</td><td class="n">24.540</td><td class="n">7.050</td><td class="n">71,3%</td><td class="n">781</td><td class="n">91</td><td class="n">26</td></tr>
+  <tr><td>3</td><td>30/30</td><td>30/30</td><td class="n">739.226</td><td class="n">37.689</td><td class="n">94,9%</td><td class="n">2.242</td><td class="n">2.063</td><td class="n">191</td></tr>
+</table>
+<p><b>Cara membaca:</b> di depth 3, Alpha-Beta hanya memeriksa sekitar 1 dari 20 posisi yang diperiksa Minimax biasa, ±10× lebih cepat, dan tetap memilih skor dan langkah yang sama di 30 dari 30 posisi. Di depth 1 tidak ada penghematan karena belum ada simpul MIN yang bisa dipangkas (AI hanya melihat langkahnya sendiri).</p>
+
+<h3>2. Kekuatan AI / win rate (Tabel 2.2.3, baris 2)</h3>
+<table class="t">
+  <tr><th>Level</th><th>Depth</th><th>vs pemain acak</th><th>vs pemain greedy</th></tr>
+  <tr><td>Easy</td><td>1</td><td class="n">100%</td><td class="n">57%</td></tr>
+  <tr><td>Medium</td><td>2</td><td class="n">100%</td><td class="n">74%</td></tr>
+  <tr><td>Hard</td><td>3</td><td class="n">100%</td><td class="n">93%</td></tr>
+  <tr><td>Expert</td><td>4</td><td class="n">100%</td><td class="n">86%</td></tr>
+</table>
+<p>Target proposal "Medium ke atas menang minimal 90% melawan pemain acak" <b>tercapai</b> (semua level 100%). Melawan greedy, win rate naik dari Easy ke Hard, tetapi <b>Expert (86%) sedikit di bawah Hard (93%)</b>. Jadi target "win rate naik seiring level" hanya tercapai sebagian. Jawaban jujur kalau ditanya:</p>
+<ul>
+  <li>Dengan 100 game, selisih 7 poin persen masih dalam rentang acak (pemain greedy memilih acak di antara langkah yang sama bagusnya).</li>
+  <li>Fungsi evaluasi BFS/DFS adalah perkiraan. Melihat lebih dalam dengan evaluasi yang tidak sempurna tidak selalu lebih baik (<i>horizon effect</i>).</li>
+  <li>Pembatasan 12 kandidat jebakan bisa membuang langkah yang ternyata bagus di kedalaman lebih besar.</li>
+</ul>
+
+<h3>3. Waktu respons (Tabel 2.2.3, baris 3)</h3>
+<table class="t">
+  <tr><th>Level</th><th>Langkah diukur</th><th>Rata-rata</th><th>p95</th><th>Maksimum</th></tr>
+  <tr><td>Easy</td><td class="n">931</td><td class="n">0,1 ms</td><td class="n">0,3 ms</td><td class="n">0,4 ms</td></tr>
+  <tr><td>Medium</td><td class="n">934</td><td class="n">1,5 ms</td><td class="n">4,4 ms</td><td class="n">12,1 ms</td></tr>
+  <tr><td>Hard</td><td class="n">914</td><td class="n">18,5 ms</td><td class="n">41,5 ms</td><td class="n">82,7 ms</td></tr>
+  <tr><td>Expert</td><td class="n">915</td><td class="n">101,1 ms</td><td class="n">316,3 ms</td><td class="n">626,1 ms</td></tr>
+</table>
+<p>Target "semua level di bawah 4 detik, Easy–Hard di bawah 1 detik" <b>tercapai jauh</b>. Angka ini diukur di Node.js dengan kode yang sama dengan Web Worker di browser; di laptop yang lebih lambat angkanya bisa lebih besar, tetapi masih jauh dari 4 detik. <i>p95</i> artinya 95% langkah selesai di bawah angka itu.</p>
+
+<h3>4. Hal yang belum dibuktikan oleh tes otomatis</h3>
+<ul>
+  <li><b>Playtest</b> (±10 siswa, kuesioner skala 1–5) adalah uji manusia; hasilnya harus dicatat sendiri oleh tim. Jangan sebut angka playtest yang tidak benar-benar dilakukan.</li>
+  <li>Waktu respons di browser bisa dicek langsung di panel <b>Otak AI</b> saat bermain (kolom Waktu).</li>
+</ul>
+{{fn:tests/run.mjs:check}}

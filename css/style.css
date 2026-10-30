@@ -1,0 +1,1995 @@
+/* Knight Trap — dark stone board lit by embers. */
+
+/* [ID] Gaya untuk: akar dokumen (tempat variabel global). */
+:root {
+  /* [ID] variabel --bg (warna latar) = #0b0a0d */
+  --bg: #0b0a0d;
+  /* [ID] variabel --bg-2 (warna latar kedua) = #131118 */
+  --bg-2: #131118;
+  /* [ID] variabel --panel (warna panel transparan) = rgba(25, 22, 30, 0.78) */
+  --panel: rgba(25, 22, 30, 0.78);
+  /* [ID] variabel --panel-solid (warna panel padat) = #19161e */
+  --panel-solid: #19161e;
+  /* [ID] variabel --panel-2 (warna panel kedua) = rgba(36, 32, 42, 0.9) */
+  --panel-2: rgba(36, 32, 42, 0.9);
+  /* [ID] variabel --line (warna garis tipis) = rgba(255, 236, 214, 0.09) */
+  --line: rgba(255, 236, 214, 0.09);
+  /* [ID] variabel --line-2 (warna garis lebih jelas) = rgba(255, 236, 214, 0.16) */
+  --line-2: rgba(255, 236, 214, 0.16);
+  /* [ID] variabel --text (warna teks) = #f4ede4 */
+  --text: #f4ede4;
+  /* [ID] variabel --muted (warna teks redup) = #a39a90 */
+  --muted: #a39a90;
+  /* [ID] variabel --faint (warna teks sangat redup) = #6d665f */
+  --faint: #6d665f;
+
+  /* [ID] variabel --ember (warna oranye api) = #ff7a2f */
+  --ember: #ff7a2f;
+  /* [ID] variabel --ember-2 (oranye terang) = #ffb45c */
+  --ember-2: #ffb45c;
+  /* [ID] variabel --ember-3 (oranye pucat) = #ffd9a3 */
+  --ember-3: #ffd9a3;
+  /* [ID] variabel --ember-glow (pendaran oranye) = rgba(255, 122, 47, 0.45) */
+  --ember-glow: rgba(255, 122, 47, 0.45);
+  /* [ID] variabel --steel (warna biru baja) = #6ea8ff */
+  --steel: #6ea8ff;
+  /* [ID] variabel --steel-2 (biru terang) = #b9d4ff */
+  --steel-2: #b9d4ff;
+  /* [ID] variabel --steel-glow (pendaran biru) = rgba(110, 168, 255, 0.45) */
+  --steel-glow: rgba(110, 168, 255, 0.45);
+  /* [ID] variabel --danger (warna bahaya (merah)) = #ff5a4f */
+  --danger: #ff5a4f;
+  /* [ID] variabel --ok (warna berhasil (hijau)) = #57d9a3 */
+  --ok: #57d9a3;
+
+  /* [ID] variabel --cell-a (warna kotak terang) = #2b2c35 */
+  --cell-a: #2b2c35;
+  /* [ID] variabel --cell-b (warna kotak gelap) = #24252d */
+  --cell-b: #24252d;
+
+  /* [ID] variabel --radius (sudut bulat besar) = 16px */
+  --radius: 16px;
+  /* [ID] variabel --radius-sm (sudut bulat kecil) = 10px */
+  --radius-sm: 10px;
+  /* [ID] variabel --shadow (bayangan standar) = 0 20px 60px rgba(0, 0, 0, 0.55), 0 2px 0 rgba… */
+  --shadow: 0 20px 60px rgba(0, 0, 0, 0.55), 0 2px 0 rgba(255, 255, 255, 0.03) inset;
+  /* [ID] variabel --font-ui (font teks) = 'Manrope', system-ui, -apple-system, 'Segoe U… */
+  --font-ui: 'Manrope', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /* [ID] variabel --font-display (font judul) = 'Cinzel', 'Trajan Pro', Georgia, serif */
+  --font-display: 'Cinzel', 'Trajan Pro', Georgia, serif;
+  /* [ID] variabel --ease-out (kurva animasi melambat) = cubic-bezier(0.22, 1, 0.36, 1) */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  /* [ID] variabel --ease-spring (kurva animasi memantul) = cubic-bezier(0.34, 1.56, 0.64, 1) */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* [ID] skema warna browser (gelap): dark */
+  color-scheme: dark;
+}
+
+/* [ID] *; * + lapisan tambahan sebelum isi; * + lapisan tambahan sesudah isi: cara menghitung ukuran (padding dan garis termasuk). */
+*, *::before, *::after { box-sizing: border-box; }
+/* [ID] yang disembunyikan: cara tampil. */
+[hidden] { display: none !important; }
+
+/* [ID] dokumen; badan halaman: tinggi. */
+html, body { height: 100%; }
+
+/* [ID] Gaya untuk: badan halaman. */
+body {
+  /* [ID] jarak luar: 0 */
+  margin: 0;
+  /* [ID] latar belakang: (nilainya di baris-baris berikutnya) */
+  background:
+    radial-gradient(1200px 700px at 50% 110%, rgba(255, 110, 40, 0.13), transparent 60%),
+    radial-gradient(900px 600px at 50% -20%, rgba(110, 140, 255, 0.07), transparent 60%),
+    var(--bg);
+  /* [ID] warna teks: var(--text) */
+  color: var(--text);
+  /* [ID] jenis huruf: var(--font-ui) */
+  font-family: var(--font-ui);
+  /* [ID] ukuran huruf: 15px */
+  font-size: 15px;
+  /* [ID] tinggi baris: 1.45 */
+  line-height: 1.45;
+  /* [ID] haluskan huruf (Mac): antialiased */
+  -webkit-font-smoothing: antialiased;
+  /* [ID] isi yang melebihi lebar: hidden */
+  overflow-x: hidden;
+  /* [ID] warna sorot saat disentuh di HP: transparent */
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* [ID] semua tombol: pengaturan huruf, warna teks. */
+button { font: inherit; color: inherit; }
+/* [ID] semua tombol + saat fokus keyboard; kolom isian + saat fokus keyboard: garis fokus, jarak garis fokus. */
+button:focus-visible, input:focus-visible { outline: 2px solid var(--ember-2); outline-offset: 2px; }
+
+/* [ID] SVG definisi tersembunyi: cara penempatan, lebar, tinggi, isi yang melebihi wadah. */
+.svg-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+/* [ID] Gaya untuk: kanvas bara latar. */
+#bg-embers {
+  /* [ID] cara penempatan: fixed */
+  position: fixed;
+  /* [ID] jarak dari semua sisi: 0 */
+  inset: 0;
+  /* [ID] lebar: 100% */
+  width: 100%;
+  /* [ID] tinggi: 100% */
+  height: 100%;
+  /* [ID] apakah bisa diklik: none */
+  pointer-events: none;
+  /* [ID] urutan tumpukan (lebih besar = di atas): 0 */
+  z-index: 0;
+}
+
+/* [ID] Gaya untuk: wadah aplikasi. */
+#app {
+  /* [ID] cara penempatan: relative */
+  position: relative;
+  /* [ID] urutan tumpukan (lebih besar = di atas): 1 */
+  z-index: 1;
+  /* [ID] tinggi minimum: 100svh */
+  min-height: 100svh;
+  /* The particle canvas overhangs the board; clip it without making a scroll container. */
+  /* [ID] isi yang melebihi lebar: clip */
+  overflow-x: clip;
+}
+
+/* ---------- Knight glyph ----------
+   Styles cannot reach inside <use> clones, so the symbol reads inherited custom properties. */
+/* [ID] gambar knight: variabel --kf, variabel --ks, variabel --km, variabel --ke. */
+.kglyph { --kf: url(#kg-0); --ks: rgba(10, 20, 50, 0.55); --km: rgba(255, 255, 255, 0.55); --ke: #0d1530; }
+/* [ID] gambar knight + pemain 2 (oranye): variabel --kf, variabel --ks, variabel --ke. */
+.kglyph.p1 { --kf: url(#kg-1); --ks: rgba(60, 15, 0, 0.55); --ke: #2a0d00; }
+/* [ID] dicerminkan: geser/putar/skala. */
+.flip { transform: scaleX(-1); }
+
+/* ---------- Screens ---------- */
+/* [ID] Gaya untuk: layar. */
+.screen {
+  /* [ID] cara tampil: none */
+  display: none;
+  /* [ID] tinggi minimum: 100svh */
+  min-height: 100svh;
+  /* [ID] jarak dalam: max(16px, env(safe-area-inset-top)) 16px max(… */
+  padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+}
+/* [ID] layar + yang aktif: cara tampil, animasi. */
+.screen.is-active { display: block; animation: screen-in 0.45s var(--ease-out); }
+/* [ID] Animasi "screen-in": layar muncul (naik dan memudar masuk). */
+@keyframes screen-in {
+  /* [ID] awal animasi: tingkat ketidaktransparanan, geser/putar/skala. */
+  from { opacity: 0; transform: translateY(10px) scale(0.995); }
+  /* [ID] akhir animasi: tingkat ketidaktransparanan, geser/putar/skala. */
+  to { opacity: 1; transform: none; }
+}
+
+/* ---------- Buttons ---------- */
+/* [ID] Gaya untuk: tombol. */
+.btn {
+  /* [ID] variabel --b (warna garis tombol) = var(--line-2) */
+  --b: var(--line-2);
+  /* [ID] cara tampil: inline-flex */
+  display: inline-flex;
+  /* [ID] perataan isi secara vertikal: center */
+  align-items: center;
+  /* [ID] perataan isi horizontal: center */
+  justify-content: center;
+  /* [ID] jarak antar isi: 12px */
+  gap: 12px;
+  /* [ID] tinggi minimum: 48px */
+  min-height: 48px;
+  /* [ID] jarak dalam: 10px 20px */
+  padding: 10px 20px;
+  /* [ID] sudut membulat: 14px */
+  border-radius: 14px;
+  /* [ID] garis tepi: 1px solid var(--b) */
+  border: 1px solid var(--b);
+  /* [ID] latar belakang: linear-gradient(180deg, rgba(255, 255, 255, 0… */
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.015)), var(--panel-solid);
+  /* [ID] ketebalan huruf: 700 */
+  font-weight: 700;
+  /* [ID] jarak antar huruf: 0.01em */
+  letter-spacing: 0.01em;
+  /* [ID] bentuk kursor mouse: pointer */
+  cursor: pointer;
+  /* [ID] transisi halus saat berubah: transform 0.18s var(--ease-out), border-color… */
+  transition: transform 0.18s var(--ease-out), border-color 0.2s, box-shadow 0.25s, background 0.2s;
+  /* [ID] bayangan/pendaran kotak: 0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 8p… */
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 8px 24px rgba(0, 0, 0, 0.35);
+  /* [ID] perataan teks: left */
+  text-align: left;
+}
+/* [ID] tombol + saat disorot mouse: geser/putar/skala, warna garis tepi, bayangan/pendaran kotak. */
+.btn:hover { transform: translateY(-2px); border-color: rgba(255, 180, 92, 0.45); box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 12px 30px rgba(0, 0, 0, 0.45), 0 0 0 4px rgba(255, 122, 47, 0.06); }
+/* [ID] tombol + saat ditekan: geser/putar/skala. */
+.btn:active { transform: translateY(0) scale(0.985); }
+/* [ID] tombol + [disabled]: tingkat ketidaktransparanan, apakah bisa diklik. */
+.btn[disabled] { opacity: 0.5; pointer-events: none; }
+/* [ID] teks kecil di dalam tombol: cara tampil, ketebalan huruf, ukuran huruf, warna teks, jarak antar huruf. */
+.btn small { display: block; font-weight: 500; font-size: 12.5px; color: var(--muted); letter-spacing: 0; }
+/* [ID] tombol besar: tinggi minimum, ukuran huruf, jarak dalam. */
+.btn-lg { min-height: 60px; font-size: 17px; padding: 12px 24px; }
+/* [ID] tombol selebar wadah: lebar, perataan isi horizontal, perataan teks. */
+.btn-block { width: 100%; justify-content: center; text-align: center; }
+/* [ID] Gaya untuk: tombol utama (oranye). */
+.btn-primary {
+  /* [ID] variabel --b (warna garis tombol) = rgba(255, 190, 120, 0.6) */
+  --b: rgba(255, 190, 120, 0.6);
+  /* [ID] latar belakang: linear-gradient(180deg, #ff9a4a, #e5541a 60%,… */
+  background: linear-gradient(180deg, #ff9a4a, #e5541a 60%, #c63f0e);
+  /* [ID] warna teks: #1d0a02 */
+  color: #1d0a02;
+  /* [ID] bayangan teks: 0 1px 0 rgba(255, 220, 180, 0.4) */
+  text-shadow: 0 1px 0 rgba(255, 220, 180, 0.4);
+  /* [ID] bayangan/pendaran kotak: 0 1px 0 rgba(255, 240, 210, 0.6) inset, 0 -2p… */
+  box-shadow: 0 1px 0 rgba(255, 240, 210, 0.6) inset, 0 -2px 0 rgba(120, 30, 0, 0.35) inset, 0 10px 30px rgba(229, 84, 26, 0.35);
+}
+/* [ID] teks kecil di dalam tombol utama (oranye): warna teks. */
+.btn-primary small { color: rgba(40, 12, 0, 0.72); }
+/* [ID] tombol utama (oranye) + saat disorot mouse: warna garis tepi, bayangan/pendaran kotak. */
+.btn-primary:hover { border-color: rgba(255, 220, 170, 0.9); box-shadow: 0 1px 0 rgba(255, 240, 210, 0.6) inset, 0 -2px 0 rgba(120, 30, 0, 0.35) inset, 0 14px 40px rgba(229, 84, 26, 0.5); }
+/* [ID] tombol transparan: latar belakang, bayangan/pendaran kotak, perataan isi horizontal. */
+.btn-ghost { background: rgba(255, 255, 255, 0.02); box-shadow: none; justify-content: center; }
+/* [ID] Gaya untuk: ikon di dalam tombol. */
+.btn-icon {
+  /* [ID] cara tampil: grid */
+  display: grid;
+  /* [ID] perataan isi ke tengah: center */
+  place-items: center;
+  /* [ID] lebar: 38px */
+  width: 38px;
+  /* [ID] tinggi: 38px */
+  height: 38px;
+  /* [ID] sudut membulat: 11px */
+  border-radius: 11px;
+  /* [ID] latar belakang: rgba(0, 0, 0, 0.18) */
+  background: rgba(0, 0, 0, 0.18);
+  /* [ID] ukuran huruf: 18px */
+  font-size: 18px;
+  /* [ID] porsi ruang flex: none */
+  flex: none;
+}
+/* [ID] ikon di dalam tombol di dalam tombol + kecuali tombol utama: latar belakang, warna teks. */
+.btn:not(.btn-primary) .btn-icon { background: rgba(255, 255, 255, 0.05); color: var(--ember-2); }
+
+/* [ID] Gaya untuk: tombol ikon bulat. */
+.icon-btn {
+  /* [ID] lebar: 44px */
+  width: 44px;
+  /* [ID] tinggi: 44px */
+  height: 44px;
+  /* [ID] sudut membulat: 12px */
+  border-radius: 12px;
+  /* [ID] garis tepi: 1px solid var(--line) */
+  border: 1px solid var(--line);
+  /* [ID] latar belakang: rgba(255, 255, 255, 0.03) */
+  background: rgba(255, 255, 255, 0.03);
+  /* [ID] ukuran huruf: 18px */
+  font-size: 18px;
+  /* [ID] bentuk kursor mouse: pointer */
+  cursor: pointer;
+  /* [ID] cara tampil: grid */
+  display: grid;
+  /* [ID] perataan isi ke tengah: center */
+  place-items: center;
+  /* [ID] transisi halus saat berubah: background 0.2s, border-color 0.2s, transform… */
+  transition: background 0.2s, border-color 0.2s, transform 0.15s;
+  /* [ID] porsi ruang flex: none */
+  flex: none;
+}
+/* [ID] tombol ikon bulat + saat disorot mouse: latar belakang, warna garis tepi. */
+.icon-btn:hover { background: rgba(255, 255, 255, 0.07); border-color: var(--line-2); }
+/* [ID] tombol ikon bulat + saat ditekan: geser/putar/skala. */
+.icon-btn:active { transform: scale(0.95); }
+/* [ID] tombol ikon bulat + yang mati: warna teks, garis pada teks. */
+.icon-btn.is-off { color: var(--faint); text-decoration: line-through; }
+
+/* ---------- Main menu ---------- */
+/* [ID] layar menu + yang aktif: cara tampil, perataan isi ke tengah, isi yang melebihi wadah, cara penempatan. */
+#screen-menu.is-active { display: grid; place-items: center; overflow: hidden; position: relative; }
+
+/* [ID] Gaya untuk: panggung papan hiasan. */
+.menu-stage {
+  /* [ID] cara penempatan: absolute */
+  position: absolute;
+  /* [ID] jarak dari semua sisi: auto 0 -6vh 0 */
+  inset: auto 0 -6vh 0;
+  /* [ID] tinggi: 70vh */
+  height: 70vh;
+  /* [ID] kedalaman 3D: 900px */
+  perspective: 900px;
+  /* [ID] apakah bisa diklik: none */
+  pointer-events: none;
+  /* [ID] gambar topeng: linear-gradient(to top, rgba(0, 0, 0, 0.9), t… */
+  mask-image: linear-gradient(to top, rgba(0, 0, 0, 0.9), transparent 85%);
+  /* [ID] gambar topeng (Safari): linear-gradient(to top, rgba(0, 0, 0, 0.9), t… */
+  -webkit-mask-image: linear-gradient(to top, rgba(0, 0, 0, 0.9), transparent 85%);
+}
+/* [ID] Gaya untuk: papan hiasan menu. */
+.menu-board {
+  /* [ID] cara penempatan: absolute */
+  position: absolute;
+  /* [ID] jarak dari kiri: 50% */
+  left: 50%;
+  /* [ID] jarak dari bawah: -10% */
+  bottom: -10%;
+  /* [ID] lebar: min(1100px, 150vw) */
+  width: min(1100px, 150vw);
+  /* [ID] perbandingan lebar:tinggi: 1 */
+  aspect-ratio: 1;
+  /* [ID] geser/putar/skala: translateX(-50%) rotateX(62deg) */
+  transform: translateX(-50%) rotateX(62deg);
+  /* [ID] titik pusat transformasi: 50% 100% */
+  transform-origin: 50% 100%;
+  /* [ID] cara tampil: grid */
+  display: grid;
+  /* [ID] susunan kolom grid: repeat(7, 1fr) */
+  grid-template-columns: repeat(7, 1fr);
+  /* [ID] jarak antar isi: 6px */
+  gap: 6px;
+  /* [ID] tingkat ketidaktransparanan: 0.55 */
+  opacity: 0.55;
+}
+/* [ID] Gaya untuk: span di dalam papan hiasan menu. */
+.menu-board span {
+  /* [ID] sudut membulat: 8px */
+  border-radius: 8px;
+  /* [ID] latar belakang: rgba(255, 255, 255, 0.035) */
+  background: rgba(255, 255, 255, 0.035);
+  /* [ID] garis tepi: 1px solid rgba(255, 255, 255, 0.04) */
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  /* [ID] transisi halus saat berubah: background 1.2s ease, box-shadow 1.2s ease */
+  transition: background 1.2s ease, box-shadow 1.2s ease;
+}
+/* [ID] span + menyala di dalam papan hiasan menu: latar belakang, bayangan/pendaran kotak. */
+.menu-board span.lit { background: radial-gradient(circle at 50% 60%, rgba(255, 140, 60, 0.55), rgba(120, 30, 0, 0.25) 60%, transparent); box-shadow: 0 0 40px rgba(255, 110, 40, 0.35); }
+/* [ID] span + berlubang di dalam papan hiasan menu: latar belakang. */
+.menu-board span.pit { background: radial-gradient(circle, #000 35%, rgba(0, 0, 0, 0.5) 70%); }
+
+/* [ID] Gaya untuk: isi menu. */
+.menu {
+  /* [ID] cara penempatan: relative */
+  position: relative;
+  /* [ID] lebar: min(440px, 100%) */
+  width: min(440px, 100%);
+  /* [ID] cara tampil: flex */
+  display: flex;
+  /* [ID] arah susunan flex: column */
+  flex-direction: column;
+  /* [ID] perataan isi secara vertikal: center */
+  align-items: center;
+  /* [ID] perataan teks: center */
+  text-align: center;
+  /* [ID] jarak dalam: 24px 0 8px */
+  padding: 24px 0 8px;
+}
+
+/* [ID] Gaya untuk: lambang menu. */
+.crest {
+  /* [ID] cara penempatan: relative */
+  position: relative;
+  /* [ID] lebar: 132px */
+  width: 132px;
+  /* [ID] tinggi: 132px */
+  height: 132px;
+  /* [ID] cara tampil: grid */
+  display: grid;
+  /* [ID] perataan isi ke tengah: center */
+  place-items: center;
+  /* [ID] jarak luar bawah: 8px */
+  margin-bottom: 8px;
+}
+/* [ID] Gaya untuk: cincin lambang. */
+.crest-ring {
+  /* [ID] cara penempatan: absolute */
+  position: absolute;
+  /* [ID] jarak dari semua sisi: 0 */
+  inset: 0;
+  /* [ID] sudut membulat: 50% */
+  border-radius: 50%;
+  /* [ID] latar belakang: (nilainya di baris-baris berikutnya) */
+  background:
+    radial-gradient(circle, rgba(255, 140, 60, 0.35), transparent 62%),
+    conic-gradient(from 0deg, transparent, rgba(255, 160, 80, 0.55), transparent 30%, transparent 50%, rgba(255, 120, 40, 0.4), transparent 80%);
+  /* [ID] topeng bentuk: radial-gradient(circle, transparent 54%, #000… */
+  mask: radial-gradient(circle, transparent 54%, #000 56%, #000 62%, transparent 64%), radial-gradient(circle, #000 50%, transparent 52%);
+  /* [ID] topeng bentuk (Safari): radial-gradient(circle, transparent 54%, #000… */
+  -webkit-mask: radial-gradient(circle, transparent 54%, #000 56%, #000 62%, transparent 64%), radial-gradient(circle, #000 50%, transparent 52%);
+  /* [ID] animasi: spin 9s linear infinite */
+  animation: spin 9s linear infinite;
+  /* [ID] efek visual: blur(0.3px) */
+  filter: blur(0.3px);
+}
+/* [ID] Gaya untuk: knight di lambang. */
+.crest-knight {
+  /* [ID] lebar: 92px */
+  width: 92px;
+  /* [ID] tinggi: 92px */
+  height: 92px;
+  /* [ID] efek visual: drop-shadow(0 0 22px rgba(255, 122, 47, 0.55)… */
+  filter: drop-shadow(0 0 22px rgba(255, 122, 47, 0.55)) drop-shadow(0 8px 10px rgba(0, 0, 0, 0.6));
+  /* [ID] animasi: float 4.5s ease-in-out infinite */
+  animation: float 4.5s ease-in-out infinite;
+}
+/* [ID] Animasi "spin" (ditulis satu baris): berputar satu putaran. */
+@keyframes spin { to { transform: rotate(360deg); } }
+/* [ID] Animasi "float" (ditulis satu baris): melayang naik turun. */
+@keyframes float { 50% { transform: translateY(-7px); } }
+
+/* [ID] Gaya untuk: judul besar. */
+.title {
+  /* [ID] jarak luar: 0 */
+  margin: 0;
+  /* [ID] jenis huruf: var(--font-display) */
+  font-family: var(--font-display);
+  /* [ID] ketebalan huruf: 900 */
+  font-weight: 900;
+  /* [ID] ukuran huruf: clamp(46px, 13vw, 76px) */
+  font-size: clamp(46px, 13vw, 76px);
+  /* [ID] tinggi baris: 0.95 */
+  line-height: 0.95;
+  /* [ID] jarak antar huruf: 0.04em */
+  letter-spacing: 0.04em;
+  /* [ID] cara tampil: flex */
+  display: flex;
+  /* [ID] arah susunan flex: column */
+  flex-direction: column;
+  /* [ID] perataan isi secara vertikal: center */
+  align-items: center;
+}
+/* [ID] Gaya untuk: kata judul. */
+.title-word {
+  /* [ID] latar belakang: linear-gradient(180deg, #fff7ec 10%, #f2d9bd … */
+  background: linear-gradient(180deg, #fff7ec 10%, #f2d9bd 55%, #b59478);
+  /* [ID] potong latar ke bentuk teks (Safari): text */
+  -webkit-background-clip: text;
+  /* [ID] potong latar ke bentuk teks: text */
+  background-clip: text;
+  /* [ID] warna teks: transparent */
+  color: transparent;
+  /* [ID] efek visual: drop-shadow(0 4px 18px rgba(0, 0, 0, 0.7)) */
+  filter: drop-shadow(0 4px 18px rgba(0, 0, 0, 0.7));
+}
+/* [ID] Gaya untuk: kata Trap. */
+.title-trap {
+  /* [ID] latar belakang: linear-gradient(180deg, #ffe2b0 0%, #ff9a4a 4… */
+  background: linear-gradient(180deg, #ffe2b0 0%, #ff9a4a 45%, #d9440f 90%);
+  /* [ID] potong latar ke bentuk teks (Safari): text */
+  -webkit-background-clip: text;
+  /* [ID] potong latar ke bentuk teks: text */
+  background-clip: text;
+  /* [ID] efek visual: drop-shadow(0 0 24px rgba(255, 110, 40, 0.55)… */
+  filter: drop-shadow(0 0 24px rgba(255, 110, 40, 0.55)) drop-shadow(0 4px 14px rgba(0, 0, 0, 0.7));
+  /* [ID] animasi: flicker 3.2s infinite */
+  animation: flicker 3.2s infinite;
+}
+/* [ID] Animasi "flicker": kedip api. */
+@keyframes flicker {
+  /* [ID] posisi animasi 0%, 100%: efek visual. */
+  0%, 100% { filter: drop-shadow(0 0 24px rgba(255, 110, 40, 0.55)) drop-shadow(0 4px 14px rgba(0, 0, 0, 0.7)); }
+  /* [ID] posisi animasi 42%: efek visual. */
+  42% { filter: drop-shadow(0 0 30px rgba(255, 130, 50, 0.75)) drop-shadow(0 4px 14px rgba(0, 0, 0, 0.7)); }
+  /* [ID] posisi animasi 47%: efek visual. */
+  47% { filter: drop-shadow(0 0 16px rgba(255, 90, 30, 0.4)) drop-shadow(0 4px 14px rgba(0, 0, 0, 0.7)); }
+  /* [ID] posisi animasi 60%: efek visual. */
+  60% { filter: drop-shadow(0 0 28px rgba(255, 120, 45, 0.65)) drop-shadow(0 4px 14px rgba(0, 0, 0, 0.7)); }
+}
+
+/* [ID] Gaya untuk: slogan. */
+.tagline {
+  /* [ID] jarak luar: 14px 0 28px */
+  margin: 14px 0 28px;
+  /* [ID] ukuran huruf: 13px */
+  font-size: 13px;
+  /* [ID] ketebalan huruf: 700 */
+  font-weight: 700;
+  /* [ID] jarak antar huruf: 0.42em */
+  letter-spacing: 0.42em;
+  /* [ID] ubah huruf besar/kecil: uppercase */
+  text-transform: uppercase;
+  /* [ID] warna teks: var(--ember-3) */
+  color: var(--ember-3);
+  /* [ID] tingkat ketidaktransparanan: 0.85 */
+  opacity: 0.85;
+  /* [ID] jarak dalam kiri: 0.42em */
+  padding-left: 0.42em;
+}
+
+/* [ID] tombol-tombol menu: lebar, cara tampil, jarak antar isi. */
+.menu-buttons { width: 100%; display: grid; gap: 12px; }
+/* [ID] tombol di dalam tombol-tombol menu: perataan isi horizontal. */
+.menu-buttons > .btn { justify-content: flex-start; }
+/* [ID] baris tombol kecil menu: cara tampil, susunan kolom grid, jarak antar isi. */
+.menu-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+/* [ID] Gaya untuk: catatan bawah menu. */
+.menu-foot {
+  /* [ID] jarak luar: 26px 0 0 */
+  margin: 26px 0 0;
+  /* [ID] ukuran huruf: 11.5px */
+  font-size: 11.5px;
+  /* [ID] jarak antar huruf: 0.18em */
+  letter-spacing: 0.18em;
+  /* [ID] ubah huruf besar/kecil: uppercase */
+  text-transform: uppercase;
+  /* [ID] warna teks: var(--faint) */
+  color: var(--faint);
+}
+
+/* ---------- Panel pages ---------- */
+/* [ID] Gaya untuk: panel halaman. */
+.panel-page {
+  /* [ID] lebar: min(560px, 100%) */
+  width: min(560px, 100%);
+  /* [ID] jarak luar: 0 auto */
+  margin: 0 auto;
+  /* [ID] jarak dalam: 8px 0 32px */
+  padding: 8px 0 32px;
+  /* [ID] cara tampil: flex */
+  display: flex;
+  /* [ID] arah susunan flex: column */
+  flex-direction: column;
+  /* [ID] jarak antar isi: 14px */
+  gap: 14px;
+}
+/* [ID] panel halaman + versi lebar: lebar. */
+.panel-page.wide { width: min(980px, 100%); }
+/* [ID] kepala halaman: cara tampil, perataan isi secara vertikal, jarak antar isi, jarak luar bawah. */
+.page-head { display: flex; align-items: center; gap: 14px; margin-bottom: 8px; }
+/* [ID] Gaya untuk: judul h2 di dalam kepala halaman. */
+.page-head h2 {
+  /* [ID] jarak luar: 0 */
+  margin: 0;
+  /* [ID] jenis huruf: var(--font-display) */
+  font-family: var(--font-display);
+  /* [ID] ketebalan huruf: 700 */
+  font-weight: 700;
+  /* [ID] ukuran huruf: 26px */
+  font-size: 26px;
+  /* [ID] jarak antar huruf: 0.03em */
+  letter-spacing: 0.03em;
+}
+/* [ID] Gaya untuk: label kecil huruf kapital. */
+.label {
+  /* [ID] jarak luar: 10px 0 0 */
+  margin: 10px 0 0;
+  /* [ID] ukuran huruf: 12px */
+  font-size: 12px;
+  /* [ID] ketebalan huruf: 800 */
+  font-weight: 800;
+  /* [ID] jarak antar huruf: 0.16em */
+  letter-spacing: 0.16em;
+  /* [ID] ubah huruf besar/kecil: uppercase */
+  text-transform: uppercase;
+  /* [ID] warna teks: var(--muted) */
+  color: var(--muted);
+}
+
+/* [ID] grid kartu level: cara tampil, susunan kolom grid, jarak antar isi. */
+.diff-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+/* [ID] Gaya untuk: kartu level. */
+.diff-card {
+  /* [ID] cara tampil: flex */
+  display: flex;
+  /* [ID] arah susunan flex: column */
+  flex-direction: column;
+  /* [ID] perataan isi secara vertikal: center */
+  align-items: center;
+  /* [ID] jarak antar isi: 6px */
+  gap: 6px;
+  /* [ID] jarak dalam: 16px 8px 14px */
+  padding: 16px 8px 14px;
+  /* [ID] sudut membulat: var(--radius) */
+  border-radius: var(--radius);
+  /* [ID] garis tepi: 1px solid var(--line) */
+  border: 1px solid var(--line);
+  /* [ID] latar belakang: var(--panel) */
+  background: var(--panel);
+  /* [ID] bentuk kursor mouse: pointer */
+  cursor: pointer;
+  /* [ID] transisi halus saat berubah: transform 0.18s var(--ease-out), border-color… */
+  transition: transform 0.18s var(--ease-out), border-color 0.2s, background 0.2s, box-shadow 0.25s;
+}
+/* [ID] kartu level + saat disorot mouse: geser/putar/skala, warna garis tepi. */
+.diff-card:hover { transform: translateY(-2px); border-color: var(--line-2); }
+/* [ID] teks tebal di dalam kartu level: ukuran huruf. */
+.diff-card strong { font-size: 15px; }
+/* [ID] keterangan kedalaman: ukuran huruf, warna teks. */
+.diff-meta { font-size: 11.5px; color: var(--muted); }
+/* [ID] ikon api level: cara tampil, jarak antar isi, tinggi, perataan isi secara vertikal. */
+.diff-flames { display: flex; gap: 3px; height: 22px; align-items: flex-end; }
+/* [ID] Gaya untuk: elemen i di dalam ikon api level. */
+.diff-flames i {
+  /* [ID] lebar: 9px */
+  width: 9px;
+  /* [ID] tinggi: 18px */
+  height: 18px;
+  /* [ID] sudut membulat: 50% 50% 45% 45% / 65% 65% 35% 35% */
+  border-radius: 50% 50% 45% 45% / 65% 65% 35% 35%;
+  /* [ID] latar belakang: linear-gradient(180deg, #ffd9a3, #ff7a2f 60%,… */
+  background: linear-gradient(180deg, #ffd9a3, #ff7a2f 60%, #c2360a);
+  /* [ID] tingkat ketidaktransparanan: 0.35 */
+  opacity: 0.35;
+  /* [ID] transisi halus saat berubah: opacity 0.2s */
+  transition: opacity 0.2s;
+}
+/* [ID] Gaya untuk: kartu level + yang dipilih. */
+.diff-card[aria-checked='true'] {
+  /* [ID] warna garis tepi: rgba(255, 160, 80, 0.75) */
+  border-color: rgba(255, 160, 80, 0.75);
+  /* [ID] latar belakang: linear-gradient(180deg, rgba(255, 122, 47, 0.… */
+  background: linear-gradient(180deg, rgba(255, 122, 47, 0.16), rgba(255, 122, 47, 0.04)), var(--panel);
+  /* [ID] bayangan/pendaran kotak: 0 0 0 4px rgba(255, 122, 47, 0.1), 0 12px 30p… */
+  box-shadow: 0 0 0 4px rgba(255, 122, 47, 0.1), 0 12px 30px rgba(0, 0, 0, 0.35);
+}
+/* [ID] elemen i di dalam kartu level + yang dipilih > ikon api level: tingkat ketidaktransparanan, animasi. */
+.diff-card[aria-checked='true'] .diff-flames i { opacity: 1; animation: lick 1.2s ease-in-out infinite alternate; }
+/* [ID] elemen i + anak ke-2 di dalam kartu level + yang dipilih > ikon api level: jeda sebelum animasi. */
+.diff-card[aria-checked='true'] .diff-flames i:nth-child(2) { animation-delay: 0.2s; }
+/* [ID] elemen i + anak ke-3 di dalam kartu level + yang dipilih > ikon api level: jeda sebelum animasi. */
+.diff-card[aria-checked='true'] .diff-flames i:nth-child(3) { animation-delay: 0.4s; }
+/* [ID] elemen i + anak ke-4 di dalam kartu level + yang dipilih > ikon api level: jeda sebelum animasi. */
+.diff-card[aria-checked='true'] .diff-flames i:nth-child(4) { animation-delay: 0.6s; }
+/* [ID] Animasi "lick" (ditulis satu baris): api menjilat (ikon level). */
+@keyframes lick { to { transform: scaleY(1.18) translateY(-1px); } }
+
+/* [ID] Gaya untuk: grup pilihan. */
+.seg {
+  /* [ID] cara tampil: grid */
+  display: grid;
+  /* [ID] arah pengisian grid: column */
+  grid-auto-flow: column;
+  /* [ID] lebar kolom grid otomatis: 1fr */
+  grid-auto-columns: 1fr;
+  /* [ID] jarak antar isi: 4px */
+  gap: 4px;
+  /* [ID] jarak dalam: 4px */
+  padding: 4px;
+  /* [ID] sudut membulat: 14px */
+  border-radius: 14px;
+  /* [ID] latar belakang: rgba(0, 0, 0, 0.3) */
+  background: rgba(0, 0, 0, 0.3);
+  /* [ID] garis tepi: 1px solid var(--line) */
+  border: 1px solid var(--line);
+}
+/* [ID] Gaya untuk: semua tombol di dalam grup pilihan. */
+.seg button {
+  /* [ID] tinggi minimum: 44px */
+  min-height: 44px;
+  /* [ID] garis tepi: 0 */
+  border: 0;
+  /* [ID] sudut membulat: 10px */
+  border-radius: 10px;
+  /* [ID] latar belakang: transparent */
+  background: transparent;
+  /* [ID] ketebalan huruf: 700 */
+  font-weight: 700;
+  /* [ID] warna teks: var(--muted) */
+  color: var(--muted);
+  /* [ID] bentuk kursor mouse: pointer */
+  cursor: pointer;
+  /* [ID] transisi halus saat berubah: background 0.2s, color 0.2s */
+  transition: background 0.2s, color 0.2s;
+  /* [ID] jarak dalam: 0 12px */
+  padding: 0 12px;
+}
+/* [ID] semua tombol + yang dipilih di dalam grup pilihan: latar belakang, warna teks, bayangan/pendaran kotak. */
+.seg button[aria-checked='true'] { background: rgba(255, 255, 255, 0.09); color: var(--text); box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08) inset; }
+/* [ID] semua tombol di dalam grup pilihan kecil: tinggi minimum. */
+.seg-sm button { min-height: 40px; }
+
+/* [ID] Gaya untuk: baris saklar. */
+.switch-row {
+  /* [ID] cara tampil: flex */
+  display: flex;
+  /* [ID] perataan isi secara vertikal: center */
+  align-items: center;
+  /* [ID] perataan isi horizontal: space-between */
+  justify-content: space-between;
+  /* [ID] jarak antar isi: 16px */
+  gap: 16px;
+  /* [ID] jarak dalam: 14px 16px */
+  padding: 14px 16px;
+  /* [ID] sudut membulat: var(--radius) */
+  border-radius: var(--radius);
+  /* [ID] garis tepi: 1px solid var(--line) */
+  border: 1px solid var(--line);
+  /* [ID] latar belakang: var(--panel) */
+  background: var(--panel);
+  /* [ID] bentuk kursor mouse: pointer */
+  cursor: pointer;
+}
+/* [ID] teks kecil di dalam baris saklar: cara tampil, warna teks, ukuran huruf, jarak luar atas. */
+.switch-row small { display: block; color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+/* [ID] baris saklar + versi ringkas: jarak dalam, sudut membulat. */
+.switch-row.compact { padding: 10px 12px; border-radius: 12px; }
+/* [ID] Gaya untuk: saklar. */
+.switch {
+  /* [ID] hilangkan tampilan bawaan: none */
+  appearance: none;
+  /* [ID] hilangkan tampilan bawaan (Safari): none */
+  -webkit-appearance: none;
+  /* [ID] porsi ruang flex: none */
+  flex: none;
+  /* [ID] lebar: 50px */
+  width: 50px;
+  /* [ID] tinggi: 30px */
+  height: 30px;
+  /* [ID] sudut membulat: 99px */
+  border-radius: 99px;
+  /* [ID] latar belakang: rgba(255, 255, 255, 0.12) */
+  background: rgba(255, 255, 255, 0.12);
+  /* [ID] cara penempatan: relative */
+  position: relative;
+  /* [ID] bentuk kursor mouse: pointer */
+  cursor: pointer;
+  /* [ID] transisi halus saat berubah: background 0.25s */
+  transition: background 0.25s;
+  /* [ID] jarak luar: 0 */
+  margin: 0;
+}
+/* [ID] Gaya untuk: saklar + lapisan tambahan sesudah isi. */
+.switch::after {
+  /* [ID] isi lapisan tambahan: '' */
+  content: '';
+  /* [ID] cara penempatan: absolute */
+  position: absolute;
+  /* [ID] jarak dari atas: 3px */
+  top: 3px;
+  /* [ID] jarak dari kiri: 3px */
+  left: 3px;
+  /* [ID] lebar: 24px */
+  width: 24px;
+  /* [ID] tinggi: 24px */
+  height: 24px;
+  /* [ID] sudut membulat: 50% */
+  border-radius: 50%;
+  /* [ID] latar belakang: #f3ece4 */
+  background: #f3ece4;
+  /* [ID] bayangan/pendaran kotak: 0 2px 6px rgba(0, 0, 0, 0.4) */
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  /* [ID] transisi halus saat berubah: transform 0.25s var(--ease-spring) */
+  transition: transform 0.25s var(--ease-spring);
+}
+/* [ID] saklar + saat dicentang: latar belakang. */
+.switch:checked { background: linear-gradient(90deg, #e5541a, #ff9a4a); }
+/* [ID] saklar + saat dicentang + lapisan tambahan sesudah isi: geser/putar/skala. */
+.switch:checked::after { transform: translateX(20px); }
+
+/* [ID] Gaya untuk: kartu mode. */
+.mode-card {
+  /* [ID] cara tampil: grid */
+  display: grid;
+  /* [ID] susunan kolom grid: auto 1fr auto */
+  grid-template-columns: auto 1fr auto;
+  /* [ID] perataan isi secara vertikal: center */
+  align-items: center;
+  /* [ID] jarak antar isi: 16px */
+  gap: 16px;
+  /* [ID] jarak dalam: 18px */
+  padding: 18px;
+  /* [ID] sudut membulat: 20px */
+  border-radius: 20px;
+  /* [ID] garis tepi: 1px solid var(--line) */
+  border: 1px solid var(--line);
+  /* [ID] latar belakang: var(--panel) */
+  background: var(--panel);
+  /* [ID] perataan teks: left */
+  text-align: left;
+  /* [ID] transisi halus saat berubah: transform 0.18s var(--ease-out), border-color… */
+  transition: transform 0.18s var(--ease-out), border-color 0.2s;
+}
+/* [ID] semua tombol + kartu mode: bentuk kursor mouse. */
+button.mode-card { cursor: pointer; }
+/* [ID] semua tombol + kartu mode + saat disorot mouse: geser/putar/skala, warna garis tepi. */
+button.mode-card:hover { transform: translateY(-2px); border-color: rgba(255, 180, 92, 0.4); }
+/* [ID] teks tebal di dalam teks kartu mode: ukuran huruf, cara tampil. */
+.mode-text strong { font-size: 17px; display: block; }
+/* [ID] teks kecil di dalam teks kartu mode: warna teks. */
+.mode-text small { color: var(--muted); }
+/* [ID] gambar kartu mode: cara tampil, perataan isi secara vertikal, perataan isi horizontal, lebar, tinggi, sudut membulat, latar belakang. */
+.mode-art { display: flex; align-items: center; justify-content: center; width: 64px; height: 56px; border-radius: 14px; background: rgba(0, 0, 0, 0.25); }
+/* [ID] gambar SVG di dalam gambar kartu mode: lebar, tinggi, jarak luar. */
+.mode-art svg { width: 34px; height: 34px; margin: 0 -5px; }
+/* [ID] ikon bola dunia: ukuran huruf, warna teks. */
+.globe { font-size: 30px; color: var(--steel-2); }
+/* [ID] panah kartu mode: ukuran huruf, warna teks. */
+.chev { font-size: 28px; color: var(--muted); }
+/* [ID] kartu mode online: susunan kolom grid. */
+.mode-online { grid-template-columns: auto 1fr; }
+/* [ID] tombol online: posisi kolom grid, cara tampil, susunan kolom grid, jarak antar isi. */
+.online-actions { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1.3fr; gap: 10px; }
+/* [ID] tombol di dalam tombol online: perataan isi horizontal. */
+.online-actions .btn { justify-content: center; }
+/* [ID] form gabung: cara tampil, susunan kolom grid, jarak antar isi. */
+.join-form { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+/* [ID] Gaya untuk: kolom kode ruang. */
+.code-input {
+  /* [ID] lebar minimum: 0 */
+  min-width: 0;
+  /* [ID] tinggi minimum: 48px */
+  min-height: 48px;
+  /* [ID] sudut membulat: 14px */
+  border-radius: 14px;
+  /* [ID] garis tepi: 1px solid var(--line-2) */
+  border: 1px solid var(--line-2);
+  /* [ID] latar belakang: rgba(0, 0, 0, 0.35) */
+  background: rgba(0, 0, 0, 0.35);
+  /* [ID] warna teks: var(--text) */
+  color: var(--text);
+  /* [ID] pengaturan huruf: 800 18px/1 var(--font-ui) */
+  font: 800 18px/1 var(--font-ui);
+  /* [ID] jarak antar huruf: 0.3em */
+  letter-spacing: 0.3em;
+  /* [ID] perataan teks: center */
+  text-align: center;
+  /* [ID] ubah huruf besar/kecil: uppercase */
+  text-transform: uppercase;
+  /* [ID] jarak dalam: 0 10px */
+  padding: 0 10px;
+}
+/* [ID] kolom kode ruang + teks contoh di kolom: warna teks, jarak antar huruf. */
+.code-input::placeholder { color: var(--faint); letter-spacing: 0.2em; }
+
+/* [ID] Gaya untuk: kartu lobi. */
+.lobby-card {
+  /* [ID] cara tampil: flex */
+  display: flex;
+  /* [ID] arah susunan flex: column */
+  flex-direction: column;
+  /* [ID] perataan isi secara vertikal: center */
+  align-items: center;
+  /* [ID] jarak antar isi: 14px */
+  gap: 14px;
+  /* [ID] jarak dalam: 32px 20px */
+  padding: 32px 20px;
+  /* [ID] sudut membulat: 24px */
+  border-radius: 24px;
+  /* [ID] garis tepi: 1px solid var(--line) */
+  border: 1px solid var(--line);
+  /* [ID] latar belakang: var(--panel) */
+  background: var(--panel);
+  /* [ID] perataan teks: center */
+  text-align: center;
+}
+/* [ID] Gaya untuk: kode ruang besar. */
+.room-code {
+  /* [ID] jenis huruf: var(--font-display) */
+  font-family: var(--font-display);
+  /* [ID] ketebalan huruf: 900 */
+  font-weight: 900;
+  /* [ID] ukuran huruf: clamp(42px, 13vw, 64px) */
+  font-size: clamp(42px, 13vw, 64px);
+  /* [ID] jarak antar huruf: 0.18em */
+  letter-spacing: 0.18em;
+  /* [ID] jarak dalam kiri: 0.18em */
+  padding-left: 0.18em;
+  /* [ID] latar belakang: linear-gradient(180deg, #ffe2b0, #ff9a4a 55%,… */
+  background: linear-gradient(180deg, #ffe2b0, #ff9a4a 55%, #d9440f);
+  /* [ID] potong latar ke bentuk teks (Safari): text */
+  -webkit-background-clip: text;
+  /* [ID] potong latar ke bentuk teks: text */
+  background-clip: text;
+  /* [ID] warna teks: transparent */
+  color: transparent;
+  /* [ID] efek visual: drop-shadow(0 0 20px rgba(255, 110, 40, 0.35)) */
+  filter: drop-shadow(0 0 20px rgba(255, 110, 40, 0.35));
+}
+/* [ID] petunjuk lobi: warna teks, jarak luar, lebar maksimum. */
+.lobby-hint { color: var(--muted); margin: 0; max-width: 36ch; }
+/* [ID] status koneksi: cara tampil, perataan isi secara vertikal, jarak antar isi, ketebalan huruf. */
+.conn-status { display: inline-flex; align-items: center; gap: 10px; font-weight: 700; }
+/* [ID] titik status: lebar, tinggi, sudut membulat, latar belakang, porsi ruang flex. */
+.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--faint); flex: none; }
+/* [ID] titik status + menunggu (kuning): latar belakang, animasi. */
+.dot.wait { background: var(--ember-2); animation: pulse-dot 1.2s infinite; }
+/* [ID] titik status + status baik/hijau: latar belakang, bayangan/pendaran kotak. */
+.dot.ok { background: var(--ok); box-shadow: 0 0 10px rgba(87, 217, 163, 0.6); }
+/* [ID] titik status + status buruk/merah: latar belakang. */
+.dot.bad { background: var(--danger); }
+/* [ID] Animasi "pulse-dot" (ditulis satu baris): titik berdenyut. */
+@keyframes pulse-dot { 50% { opacity: 0.35; } }
+
+/* How to play */
+/* [ID] grid langkah: cara tampil, susunan kolom grid, jarak antar isi. */
+.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+/* [ID] Gaya untuk: kartu langkah Cara Bermain. */
+.step {
+  /* [ID] sudut membulat: 20px */
+  border-radius: 20px;
+  /* [ID] garis tepi: 1px solid var(--line) */
+  border: 1px solid var(--line);
+  /* [ID] latar belakang: var(--panel) */
+  background: var(--panel);
+  /* [ID] jarak dalam: 16px */
+  padding: 16px;
+  /* [ID] cara tampil: flex */
+  display: flex;
+  /* [ID] arah susunan flex: column */
+  flex-direction: column;
+  /* [ID] jarak antar isi: 12px */
+  gap: 12px;
+}
+/* [ID] Gaya untuk: nomor langkah. */
+.step-num {
+  /* [ID] cara tampil: inline-grid */
+  display: inline-grid;
+  /* [ID] perataan isi ke tengah: center */
+  place-items: center;
+  /* [ID] lebar: 30px */
+  width: 30px;
+  /* [ID] tinggi: 30px */
+  height: 30px;
+  /* [ID] sudut membulat: 50% */
+  border-radius: 50%;
+  /* [ID] latar belakang: linear-gradient(180deg, #ff9a4a, #d9440f) */
+  background: linear-gradient(180deg, #ff9a4a, #d9440f);
+  /* [ID] warna teks: #1d0a02 */
+  color: #1d0a02;
+  /* [ID] ketebalan huruf: 800 */
+  font-weight: 800;
+}
+/* [ID] judul h3 di dalam kartu langkah Cara Bermain: jarak luar, cara tampil, perataan isi secara vertikal, jarak antar isi, jenis huruf, ukuran huruf. */
+.step h3 { margin: 0; display: flex; align-items: center; gap: 10px; font-family: var(--font-display); font-size: 19px; }
+/* [ID] paragraf di dalam kartu langkah Cara Bermain: jarak luar, warna teks, ukuran huruf. */
+.step p { margin: 0; color: var(--muted); font-size: 14px; }
+/* [ID] Gaya untuk: papan mini 5x5. */
+.mini-board {
+  /* [ID] cara tampil: grid */
+  display: grid;
+  /* [ID] susunan kolom grid: repeat(5, 1fr) */
+  grid-template-columns: repeat(5, 1fr);
+  /* [ID] jarak antar isi: 3px */
+  gap: 3px;
+  /* [ID] jarak dalam: 6px */
+  padding: 6px;
+  /* [ID] sudut membulat: 12px */
+  border-radius: 12px;
+  /* [ID] latar belakang: #121116 */
+  background: #121116;
+  /* [ID] perbandingan lebar:tinggi: 1 */
+  aspect-ratio: 1;
+  /* [ID] cara penempatan: relative */
+  position: relative;
+}
+/* [ID] papan mini 5x5: susunan baris grid. */
+.mini-board { grid-template-rows: repeat(5, 1fr); }
+/* [ID] kotak papan di dalam papan mini 5x5: sudut membulat, lebar minimum, tinggi minimum. */
+.mini-board .cell { border-radius: 5px; min-width: 0; min-height: 0; }
+/* [ID] kotak papan + lompatan legal + lapisan tambahan sebelum isi di dalam papan mini 5x5: lebar. */
+.mini-board .cell.legal::before { width: 26%; }
+/* [ID] gambar SVG di dalam papan mini 5x5: cara penempatan, jarak dari semua sisi, lebar, tinggi, urutan tumpukan (lebih besar = di atas). */
+.mini-board svg { position: absolute; inset: 7%; width: 86%; height: 86%; z-index: 1; }
+/* [ID] Gaya untuk: kotak aturan kalah. */
+.lose-rule {
+  /* [ID] cara tampil: flex */
+  display: flex;
+  /* [ID] perataan isi secara vertikal: center */
+  align-items: center;
+  /* [ID] jarak antar isi: 14px */
+  gap: 14px;
+  /* [ID] jarak dalam: 14px 18px */
+  padding: 14px 18px;
+  /* [ID] sudut membulat: 16px */
+  border-radius: 16px;
+  /* [ID] garis tepi: 1px solid rgba(255, 90, 79, 0.28) */
+  border: 1px solid rgba(255, 90, 79, 0.28);
+  /* [ID] latar belakang: rgba(255, 90, 79, 0.07) */
+  background: rgba(255, 90, 79, 0.07);
+}
+/* [ID] paragraf di dalam kotak aturan kalah: jarak luar. */
+.lose-rule p { margin: 0; }
+/* [ID] ikon aturan kalah: ukuran huruf. */
+.lose-icon { font-size: 24px; }
+/* [ID] teks kredit: warna teks, ukuran huruf, perataan teks, jarak luar atas. */
+.credits { color: var(--faint); font-size: 12px; text-align: center; margin-top: 18px; }
+
+/* ---------- Game screen ---------- */
+/* [ID] layar game + yang aktif: cara tampil, arah susunan flex, jarak antar isi. */
+#screen-game.is-active { display: flex; flex-direction: column; gap: 12px; }
+/* [ID] bilah atas game: cara tampil, perataan isi secara vertikal, jarak antar isi, lebar, jarak luar. */
+.game-top { display: flex; align-items: center; gap: 12px; width: min(1240px, 100%); margin: 0 auto; }
+/* [ID] nama mode game: porsi ruang flex, ketebalan huruf, jarak antar huruf, ubah huruf besar/kecil, ukuran huruf, warna teks, lebar minimum, isi yang melebihi wadah, teks yang terpotong, aturan pindah baris. */
+.game-mode { flex: 1; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; font-size: 13px; color: var(--muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* [ID] bagian kanan bilah atas: cara tampil, perataan isi secara vertikal, jarak antar isi. */
+.game-top-right { display: flex; align-items: center; gap: 8px; }
+/* [ID] status online: cara tampil, perataan isi secara vertikal, jarak antar isi, tinggi, jarak dalam, sudut membulat, garis tepi, latar belakang, ukuran huruf, ketebalan huruf. */
+.net-pill { display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px; border-radius: 99px; border: 1px solid var(--line); background: var(--panel); font-size: 12.5px; font-weight: 700; }
+
+/* [ID] Gaya untuk: tata letak layar game. */
+.game-layout {
+  /* [ID] variabel --bsize (ukuran papan) = min(calc(100vw - 32px), calc(100svh - 300px),… */
+  --bsize: min(calc(100vw - 32px), calc(100svh - 300px), 600px);
+  /* [ID] lebar: min(1240px, 100%) */
+  width: min(1240px, 100%);
+  /* [ID] jarak luar: 0 auto */
+  margin: 0 auto;
+  /* [ID] cara tampil: grid */
+  display: grid;
+  /* [ID] susunan kolom grid: 1fr */
+  grid-template-columns: 1fr;
+  /* [ID] jarak antar isi: 14px */
+  gap: 14px;
+  /* [ID] perataan item grid horizontal: center */
+  justify-items: center;
+}
+
+/* [ID] kolom kartu pemain: lebar, cara tampil, susunan kolom grid, perataan isi secara vertikal, jarak antar isi. */
+.players { width: min(100%, var(--bsize)); display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; }
+/* [ID] tulisan VS: jenis huruf, ketebalan huruf, warna teks, ukuran huruf. */
+.vs { font-family: var(--font-display); font-weight: 900; color: var(--faint); font-size: 13px; }
+/* [ID] Gaya untuk: kartu pemain. */
+.pcard {
+  /* [ID] variabel --c (warna sisi) = var(--steel) */
+  --c: var(--steel);
+  /* [ID] variabel --g (warna pendaran sisi) = var(--steel-glow) */
+  --g: var(--steel-glow);
+  /* [ID] cara tampil: grid */
+  display: grid;
+  /* [ID] susunan kolom grid: auto 1fr auto */
+  grid-template-columns: auto 1fr auto;
+  /* [ID] perataan isi secara vertikal: center */
+  align-items: center;
+  /* [ID] jarak antar isi: 8px */
+  gap: 8px;
+  /* [ID] jarak dalam: 8px 10px */
+  padding: 8px 10px;
+  /* [ID] sudut membulat: 14px */
+  border-radius: 14px;
+  /* [ID] garis tepi: 1px solid var(--line) */
+  border: 1px solid var(--line);
+  /* [ID] latar belakang: var(--panel) */
+  background: var(--panel);
+  /* [ID] transisi halus saat berubah: border-color 0.3s, box-shadow 0.3s, transform… */
+  transition: border-color 0.3s, box-shadow 0.3s, transform 0.3s var(--ease-out), opacity 0.3s;
+  /* [ID] tingkat ketidaktransparanan: 0.66 */
+  opacity: 0.66;
+  /* [ID] lebar minimum: 0 */
+  min-width: 0;
+}
+/* [ID] kartu pemain + sisi 1: variabel --c, variabel --g. */
+.pcard[data-side='1'] { --c: var(--ember); --g: var(--ember-glow); }
+/* [ID] kartu pemain + yang sedang jalan: tingkat ketidaktransparanan, warna garis tepi, bayangan/pendaran kotak. */
+.pcard.is-turn { opacity: 1; border-color: color-mix(in srgb, var(--c) 70%, transparent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--c) 18%, transparent), 0 10px 30px var(--g); }
+/* [ID] kartu pemain + pemenang: tingkat ketidaktransparanan, warna garis tepi, bayangan/pendaran kotak. */
+.pcard.is-winner { opacity: 1; border-color: #ffd36b; box-shadow: 0 0 0 3px rgba(255, 211, 107, 0.2), 0 10px 30px rgba(255, 211, 107, 0.3); }
+/* [ID] knight kartu pemain: lebar, tinggi, efek visual. */
+.pcard-knight { width: 34px; height: 34px; filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.5)); }
+/* [ID] info kartu pemain: lebar minimum, cara tampil, arah susunan flex. */
+.pcard-info { min-width: 0; display: flex; flex-direction: column; }
+/* [ID] nama pemain: ukuran huruf, aturan pindah baris, isi yang melebihi wadah, teks yang terpotong. */
+.pcard-name { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* [ID] keterangan pemain: ukuran huruf, warna teks, aturan pindah baris, isi yang melebihi wadah, teks yang terpotong. */
+.pcard-sub { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* [ID] jumlah lompatan kartu pemain: cara tampil, arah susunan flex, perataan isi secara vertikal, tinggi baris, jarak dalam kiri, garis tepi kiri. */
+.pcard-mob { display: flex; flex-direction: column; align-items: center; line-height: 1; padding-left: 6px; border-left: 1px solid var(--line); }
+/* [ID] teks tebal di dalam jumlah lompatan kartu pemain: ukuran huruf, warna teks, angka sama lebar. */
+.pcard-mob b { font-size: 20px; color: var(--c); font-variant-numeric: tabular-nums; }
+/* [ID] teks kecil di dalam jumlah lompatan kartu pemain: ukuran huruf, warna teks, ubah huruf besar/kecil, jarak antar huruf, jarak luar atas. */
+.pcard-mob small { font-size: 9.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 3px; }
+/* [ID] teks tebal di dalam jumlah lompatan kartu pemain + bahaya (merah): warna teks, animasi. */
+.pcard-mob.danger b { color: var(--danger); animation: pulse-dot 0.9s infinite; }
+
+/* [ID] kolom papan: cara tampil, arah susunan flex, perataan isi secara vertikal, jarak antar isi, lebar. */
+.board-col { display: flex; flex-direction: column; align-items: center; gap: 10px; width: var(--bsize); }
+
+/* [ID] Gaya untuk: status giliran. */
+.status {
+  /* [ID] variabel --c (warna sisi) = var(--steel) */
+  --c: var(--steel);
+  /* [ID] lebar: 100% */
+  width: 100%;
+  /* [ID] tinggi minimum: 52px */
+  min-height: 52px;
+  /* [ID] cara tampil: flex */
+  display: flex;
+  /* [ID] perataan isi secara vertikal: center */
+  align-items: center;
+  /* [ID] jarak antar isi: 10px */
+  gap: 10px;
+  /* [ID] jarak dalam: 8px 8px 8px 14px */
+  padding: 8px 8px 8px 14px;
+  /* [ID] sudut membulat: 14px */
+  border-radius: 14px;
+  /* [ID] garis tepi: 1px solid var(--line) */
+  border: 1px solid var(--line);
+  /* [ID] latar belakang: var(--panel) */
+  background: var(--panel);
+  /* [ID] ketebalan huruf: 700 */
+  font-weight: 700;
+  /* [ID] transisi halus saat berubah: border-color 0.3s */
+  transition: border-color 0.3s;
+}
+/* [ID] status giliran + sisi 1: variabel --c. */
+.status[data-side='1'] { --c: var(--ember); }
+/* [ID] titik status: lebar, tinggi, sudut membulat, latar belakang, bayangan/pendaran kotak, porsi ruang flex. */
+.status-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--c); box-shadow: 0 0 12px var(--c); flex: none; }
+/* [ID] teks status: porsi ruang flex, lebar minimum. */
+.status-text { flex: 1; min-width: 0; }
+/* [ID] status giliran + mode memilih jebakan: warna garis tepi, latar belakang. */
+.status.trap-mode { border-color: rgba(255, 90, 79, 0.5); background: linear-gradient(90deg, rgba(255, 90, 79, 0.13), transparent 70%), var(--panel); }
+/* [ID] titik status di dalam status giliran + mode memilih jebakan: latar belakang, bayangan/pendaran kotak, animasi. */
+.status.trap-mode .status-dot { background: var(--danger); box-shadow: 0 0 12px var(--danger); animation: pulse-dot 0.9s infinite; }
+/* [ID] Gaya untuk: tombol batal lompat. */
+.status-undo {
+  /* [ID] garis tepi: 1px solid var(--line-2) */
+  border: 1px solid var(--line-2);
+  /* [ID] latar belakang: rgba(255, 255, 255, 0.04) */
+  background: rgba(255, 255, 255, 0.04);
+  /* [ID] sudut membulat: 10px */
+  border-radius: 10px;
+  /* [ID] tinggi minimum: 34px */
+  min-height: 34px;
+  /* [ID] jarak dalam: 0 12px */
+  padding: 0 12px;
+  /* [ID] ukuran huruf: 13px */
+  font-size: 13px;
+  /* [ID] ketebalan huruf: 700 */
+  font-weight: 700;
+  /* [ID] bentuk kursor mouse: pointer */
+  cursor: pointer;
+}
+/* [ID] tombol batal lompat + saat disorot mouse: latar belakang. */
+.status-undo:hover { background: rgba(255, 255, 255, 0.09); }
+
+/* [ID] Gaya untuk: bingkai papan. */
+.board-shell {
+  /* [ID] variabel --turn (warna giliran) = var(--steel-glow) */
+  --turn: var(--steel-glow);
+  /* [ID] cara penempatan: relative */
+  position: relative;
+  /* [ID] lebar: var(--bsize) */
+  width: var(--bsize);
+  /* [ID] perbandingan lebar:tinggi: 1 */
+  aspect-ratio: 1;
+  /* [ID] jarak dalam: 10px */
+  padding: 10px;
+  /* [ID] sudut membulat: 22px */
+  border-radius: 22px;
+  /* [ID] latar belakang: (nilainya di baris-baris berikutnya) */
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0) 30%),
+    linear-gradient(135deg, #2a2620, #17141a 55%, #100e12);
+  /* [ID] bayangan/pendaran kotak: (nilainya di baris-baris berikutnya) */
+  box-shadow:
+    0 0 0 1px rgba(255, 230, 200, 0.08),
+    0 2px 0 rgba(255, 255, 255, 0.06) inset,
+    0 30px 80px rgba(0, 0, 0, 0.7),
+    0 0 60px var(--turn);
+  /* [ID] transisi halus saat berubah: box-shadow 0.6s ease */
+  transition: box-shadow 0.6s ease;
+}
+/* [ID] bingkai papan + giliran 1: variabel --turn. */
+.board-shell[data-turn='1'] { --turn: rgba(255, 122, 47, 0.22); }
+/* [ID] bingkai papan + giliran 0: variabel --turn. */
+.board-shell[data-turn='0'] { --turn: rgba(110, 168, 255, 0.18); }
+/* [ID] bingkai papan + mode memilih jebakan: bentuk kursor mouse. */
+.board-shell.trap-mode { cursor: crosshair; }
+
+/* [ID] Gaya untuk: papan 7x7. */
+.board {
+  /* [ID] variabel --gap (celah antar kotak) = 3px */
+  --gap: 3px;
+  /* [ID] cara penempatan: relative */
+  position: relative;
+  /* [ID] lebar: 100% */
+  width: 100%;
+  /* [ID] tinggi: 100% */
+  height: 100%;
+  /* [ID] cara tampil: grid */
+  display: grid;
+  /* [ID] susunan kolom grid: repeat(7, 1fr) */
+  grid-template-columns: repeat(7, 1fr);
+  /* [ID] susunan baris grid: repeat(7, 1fr) */
+  grid-template-rows: repeat(7, 1fr);
+  /* [ID] jarak antar isi: var(--gap) */
+  gap: var(--gap);
+  /* [ID] sudut membulat: 14px */
+  border-radius: 14px;
+  /* [ID] isi yang melebihi wadah: visible */
+  overflow: visible;
+}
+
+/* [ID] Gaya untuk: kotak papan. */
+.cell {
+  /* [ID] cara penempatan: relative */
+  position: relative;
+  /* [ID] garis tepi: 0 */
+  border: 0;
+  /* [ID] jarak dalam: 0 */
+  padding: 0;
+  /* [ID] sudut membulat: 8px */
+  border-radius: 8px;
+  /* [ID] latar belakang: (nilainya di baris-baris berikutnya) */
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(0, 0, 0, 0.12)),
+    var(--cell-a);
+  /* [ID] bayangan/pendaran kotak: 0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 -1… */
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 -1px 0 rgba(0, 0, 0, 0.35) inset;
+  /* [ID] bentuk kursor mouse: default */
+  cursor: default;
+  /* [ID] transisi halus saat berubah: background 0.35s, transform 0.2s var(--ease-o… */
+  transition: background 0.35s, transform 0.2s var(--ease-out), box-shadow 0.3s;
+  /* [ID] isi yang melebihi wadah: hidden */
+  overflow: hidden;
+}
+/* [ID] kotak papan + kotak gelap: latar belakang. */
+.cell.dark { background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(0, 0, 0, 0.14)), var(--cell-b); }
+/* [ID] Gaya untuk: label koordinat kotak di dalam kotak papan. */
+.cell .coord {
+  /* [ID] cara penempatan: absolute */
+  position: absolute;
+  /* [ID] ukuran huruf: 9px */
+  font-size: 9px;
+  /* [ID] ketebalan huruf: 800 */
+  font-weight: 800;
+  /* [ID] warna teks: rgba(255, 255, 255, 0.18) */
+  color: rgba(255, 255, 255, 0.18);
+  /* [ID] apakah bisa diklik: none */
+  pointer-events: none;
+  /* [ID] tinggi baris: 1 */
+  line-height: 1;
+}
+/* [ID] label koordinat kotak + label huruf kolom di dalam kotak papan: jarak dari kanan, jarak dari bawah. */
+.cell .coord.f { right: 4px; bottom: 3px; }
+/* [ID] label koordinat kotak + label angka baris di dalam kotak papan: jarak dari kiri, jarak dari atas. */
+.cell .coord.r { left: 4px; top: 3px; }
+
+/* Burned: charred with a faint living glow. */
+/* [ID] Gaya untuk: kotak papan + terbakar. */
+.cell.burned {
+  /* [ID] latar belakang: (nilainya di baris-baris berikutnya) */
+  background:
+    radial-gradient(circle at 50% 62%, rgba(255, 110, 30, 0.38), rgba(120, 30, 0, 0.16) 42%, transparent 70%),
+    radial-gradient(circle at 30% 30%, #2b1d17, #120c0b 70%);
+  /* [ID] bayangan/pendaran kotak: 0 0 0 1px rgba(255, 110, 30, 0.12) inset, 0 -… */
+  box-shadow: 0 0 0 1px rgba(255, 110, 30, 0.12) inset, 0 -6px 14px rgba(255, 90, 20, 0.1) inset;
+}
+/* [ID] Gaya untuk: kotak papan + terbakar + lapisan tambahan sesudah isi. */
+.cell.burned::after {
+  /* [ID] isi lapisan tambahan: '' */
+  content: '';
+  /* [ID] cara penempatan: absolute */
+  position: absolute;
+  /* [ID] jarak dari semua sisi: 0 */
+  inset: 0;
+  /* [ID] latar belakang: (nilainya di baris-baris berikutnya) */
+  background:
+    radial-gradient(2px 2px at 30% 60%, rgba(255, 180, 90, 0.9), transparent),
+    radial-gradient(1.5px 1.5px at 66% 40%, rgba(255, 150, 70, 0.8), transparent),
+    radial-gradient(1.5px 1.5px at 55% 75%, rgba(255, 200, 120, 0.8), transparent),
+    radial-gradient(circle at 50% 70%, rgba(255, 120, 40, 0.25), transparent 60%);
+  /* [ID] animasi: smolder 2.6s ease-in-out infinite alternate */
+  animation: smolder 2.6s ease-in-out infinite alternate;
+}
+/* [ID] kotak papan + terbakar + anak ke-3n + lapisan tambahan sesudah isi: lama animasi. */
+.cell.burned:nth-child(3n)::after { animation-duration: 3.3s; }
+/* [ID] kotak papan + terbakar + anak ke-4n + lapisan tambahan sesudah isi: jeda sebelum animasi. */
+.cell.burned:nth-child(4n)::after { animation-delay: -1.1s; }
+/* [ID] Animasi "smolder" (ditulis satu baris): bara kotak terbakar. */
+@keyframes smolder { 0% { opacity: 0.35; } 100% { opacity: 1; } }
+/* [ID] label koordinat kotak di dalam kotak papan + terbakar: warna teks. */
+.cell.burned .coord { color: rgba(255, 150, 80, 0.18); }
+
+/* Trap: a cracked pit. */
+/* [ID] Gaya untuk: kotak papan + jebakan. */
+.cell.trap {
+  /* [ID] latar belakang: (nilainya di baris-baris berikutnya) */
+  background:
+    radial-gradient(circle at 50% 50%, #000 0 28%, #0a0809 38%, #1c1719 58%, #2a2427 100%);
+  /* [ID] bayangan/pendaran kotak: 0 0 0 1px rgba(0, 0, 0, 0.6) inset, 0 6px 14p… */
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6) inset, 0 6px 14px rgba(0, 0, 0, 0.8) inset;
+}
+/* [ID] Gaya untuk: kotak papan + jebakan + lapisan tambahan sebelum isi. */
+.cell.trap::before {
+  /* [ID] isi lapisan tambahan: '' */
+  content: '';
+  /* [ID] cara penempatan: absolute */
+  position: absolute;
+  /* [ID] jarak dari semua sisi: 0 */
+  inset: 0;
+  /* [ID] latar belakang: url("data:image/svg+xml,%3Csvg xmlns='http://… */
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='none' stroke='%23000' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M50 50 30 34 18 36 4 22M50 50l22-14 6-16 14-8M50 50l-4 22-12 10-4 16M50 50l24 10 8 14 14 4M50 50 26 58 10 56'/%3E%3C/svg%3E") center/100% 100% no-repeat;
+  /* [ID] tingkat ketidaktransparanan: 0.85 */
+  opacity: 0.85;
+}
+/* [ID] Gaya untuk: kotak papan + jebakan + lapisan tambahan sesudah isi. */
+.cell.trap::after {
+  /* [ID] isi lapisan tambahan: '' */
+  content: '';
+  /* [ID] cara penempatan: absolute */
+  position: absolute;
+  /* [ID] jarak dari semua sisi: 18% */
+  inset: 18%;
+  /* [ID] sudut membulat: 50% */
+  border-radius: 50%;
+  /* [ID] bayangan/pendaran kotak: 0 0 0 1px rgba(255, 90, 79, 0.18), 0 0 18px r… */
+  box-shadow: 0 0 0 1px rgba(255, 90, 79, 0.18), 0 0 18px rgba(0, 0, 0, 0.9) inset;
+}
+/* [ID] label koordinat kotak di dalam kotak papan + jebakan: warna teks. */
+.cell.trap .coord { color: rgba(255, 255, 255, 0.08); }
+
+/* Legal jump target: soft pulsing dot. */
+/* [ID] kotak papan + lompatan legal: bentuk kursor mouse. */
+.cell.legal { cursor: pointer; }
+/* [ID] Gaya untuk: kotak papan + lompatan legal + lapisan tambahan sebelum isi. */
+.cell.legal::before {
+  /* [ID] isi lapisan tambahan: '' */
+  content: '';
+  /* [ID] cara penempatan: absolute */
+  position: absolute;
+  /* [ID] jarak dari kiri: 50% */
+  left: 50%;
+  /* [ID] jarak dari atas: 50% */
+  top: 50%;
+  /* [ID] lebar: 30% */
+  width: 30%;
+  /* [ID] perbandingan lebar:tinggi: 1 */
+  aspect-ratio: 1;
+  /* [ID] sudut membulat: 50% */
+  border-radius: 50%;
+  /* [ID] geser/putar/skala: translate(-50%, -50%) */
+  transform: translate(-50%, -50%);
+  /* [ID] latar belakang: radial-gradient(circle, var(--hl, var(--steel… */
+  background: radial-gradient(circle, var(--hl, var(--steel-2)), var(--hl2, var(--steel)) 60%, transparent 72%);
+  /* [ID] bayangan/pendaran kotak: 0 0 18px var(--hl2, var(--steel)) */
+  box-shadow: 0 0 18px var(--hl2, var(--steel));
+  /* [ID] animasi: legal-pulse 1.4s ease-in-out infinite */
+  animation: legal-pulse 1.4s ease-in-out infinite;
+}
+/* [ID] kotak papan + lompatan legal di dalam papan 7x7 + sisi 1: variabel --hl, variabel --hl2. */
+.board[data-side='1'] .cell.legal { --hl: var(--ember-3); --hl2: var(--ember); }
+/* [ID] kotak papan + lompatan legal + saat disorot mouse: geser/putar/skala, bayangan/pendaran kotak. */
+.cell.legal:hover { transform: translateY(-2px); box-shadow: 0 0 0 2px var(--hl2, var(--steel)) inset, 0 8px 18px rgba(0, 0, 0, 0.4); }
+/* [ID] kotak papan + lompatan legal + saat disorot mouse + lapisan tambahan sebelum isi: lebar. */
+.cell.legal:hover::before { width: 42%; }
+/* [ID] Animasi "legal-pulse": titik lompatan legal berdenyut. */
+@keyframes legal-pulse {
+  /* [ID] posisi animasi 0%, 100%: tingkat ketidaktransparanan, geser/putar/skala. */
+  0%, 100% { opacity: 0.55; transform: translate(-50%, -50%) scale(0.85); }
+  /* [ID] posisi animasi 50%: tingkat ketidaktransparanan, geser/putar/skala. */
+  50% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+}
+
+/* Trap mode: every open square is a target. */
+/* [ID] kotak papan + bisa dijebak: bentuk kursor mouse. */
+.cell.trappable { cursor: crosshair; }
+/* [ID] Gaya untuk: kotak papan + bisa dijebak + saat disorot mouse. */
+.cell.trappable:hover {
+  /* [ID] latar belakang: radial-gradient(circle, rgba(255, 90, 79, 0.2… */
+  background: radial-gradient(circle, rgba(255, 90, 79, 0.28), rgba(255, 90, 79, 0.06) 70%), var(--cell-a);
+  /* [ID] bayangan/pendaran kotak: 0 0 0 2px rgba(255, 90, 79, 0.75) inset */
+  box-shadow: 0 0 0 2px rgba(255, 90, 79, 0.75) inset;
+}
+/* [ID] Gaya untuk: kotak papan + bisa dijebak + saat disorot mouse + lapisan tambahan sesudah isi. */
+.cell.trappable:hover::after {
+  /* [ID] isi lapisan tambahan: '✕' */
+  content: '✕';
+  /* [ID] cara penempatan: absolute */
+  position: absolute;
+  /* [ID] jarak dari semua sisi: 0 */
+  inset: 0;
+  /* [ID] cara tampil: grid */
+  display: grid;
+  /* [ID] perataan isi ke tengah: center */
+  place-items: center;
+  /* [ID] warna teks: var(--danger) */
+  color: var(--danger);
+  /* [ID] ukuran huruf: calc(var(--bsize) / 7 * 0.42) */
+  font-size: calc(var(--bsize) / 7 * 0.42);
+  /* [ID] ketebalan huruf: 800 */
+  font-weight: 800;
+  /* [ID] bayangan teks: 0 0 12px rgba(255, 90, 79, 0.8) */
+  text-shadow: 0 0 12px rgba(255, 90, 79, 0.8);
+}
+/* Squares the opponent could jump to next turn. */
+/* [ID] kotak papan + tujuan lawan (saran jebakan): bayangan/pendaran kotak. */
+.cell.threat { box-shadow: 0 0 0 2px rgba(255, 210, 120, 0.42) inset; }
+/* [ID] Gaya untuk: kotak papan + tujuan lawan (saran jebakan) + lapisan tambahan sebelum isi. */
+.cell.threat::before {
+  /* [ID] isi lapisan tambahan: '' */
+  content: '';
+  /* [ID] cara penempatan: absolute */
+  position: absolute;
+  /* [ID] jarak dari semua sisi: 0 */
+  inset: 0;
+  /* [ID] latar belakang: repeating-linear-gradient(135deg, rgba(255, 2… */
+  background: repeating-linear-gradient(135deg, rgba(255, 200, 120, 0.09) 0 4px, transparent 4px 9px);
+}
+
+/* [ID] kotak papan + kotak pendaratan terakhir: bayangan/pendaran kotak. */
+.cell.last-land { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.22) inset; }
+/* [ID] kotak papan + jebakan terakhir + lapisan tambahan sesudah isi: bayangan/pendaran kotak. */
+.cell.last-trap::after { box-shadow: 0 0 0 2px rgba(255, 90, 79, 0.55), 0 0 18px rgba(0, 0, 0, 0.9) inset; }
+
+/* [ID] kotak papan + animasi runtuh: animasi. */
+.cell.drop { animation: trap-drop 0.45s var(--ease-out); }
+/* [ID] Animasi "trap-drop": kotak runtuh menjadi jebakan. */
+@keyframes trap-drop {
+  /* [ID] awal animasi: geser/putar/skala, efek visual. */
+  0% { transform: scale(1.12); filter: brightness(2.2); }
+  /* [ID] posisi animasi 60%: geser/putar/skala. */
+  60% { transform: scale(0.92); }
+  /* [ID] akhir animasi: geser/putar/skala, efek visual. */
+  100% { transform: none; filter: none; }
+}
+/* [ID] kotak papan + animasi menyala: animasi. */
+.cell.ignite { animation: ignite 0.7s ease-out; }
+/* [ID] Animasi "ignite": kotak menyala saat dibakar. */
+@keyframes ignite {
+  /* [ID] awal animasi: efek visual. */
+  0% { filter: brightness(2.6) saturate(1.4); }
+  /* [ID] akhir animasi: efek visual. */
+  100% { filter: none; }
+}
+
+/* Knights sit on a layer above the cells; position via --r/--c (0..6). */
+/* [ID] Gaya untuk: bidak knight. */
+.knight {
+  /* [ID] cara penempatan: absolute */
+  position: absolute;
+  /* [ID] jarak dari kiri: 0 */
+  left: 0;
+  /* [ID] jarak dari atas: 0 */
+  top: 0;
+  /* [ID] lebar: calc((100% - 6 * var(--gap)) / 7) */
+  width: calc((100% - 6 * var(--gap)) / 7);
+  /* [ID] tinggi: calc((100% - 6 * var(--gap)) / 7) */
+  height: calc((100% - 6 * var(--gap)) / 7);
+  /* [ID] geser/putar/skala: translate(calc(var(--c) * (100% + var(--gap))… */
+  transform: translate(calc(var(--c) * (100% + var(--gap))), calc(var(--r) * (100% + var(--gap))));
+  /* [ID] apakah bisa diklik: none */
+  pointer-events: none;
+  /* [ID] urutan tumpukan (lebih besar = di atas): 3 */
+  z-index: 3;
+  /* [ID] cara tampil: grid */
+  display: grid;
+  /* [ID] perataan isi ke tengah: center */
+  place-items: center;
+}
+/* [ID] Gaya untuk: gambar SVG di dalam bidak knight. */
+.knight svg {
+  /* [ID] lebar: 82% */
+  width: 82%;
+  /* [ID] tinggi: 82% */
+  height: 82%;
+  /* [ID] efek visual: drop-shadow(0 6px 6px rgba(0, 0, 0, 0.65)) */
+  filter: drop-shadow(0 6px 6px rgba(0, 0, 0, 0.65));
+  /* [ID] transisi halus saat berubah: filter 0.3s */
+  transition: filter 0.3s;
+}
+/* [ID] Gaya untuk: bidak knight + lapisan tambahan sebelum isi. */
+.knight::before {
+  /* [ID] isi lapisan tambahan: '' */
+  content: '';
+  /* [ID] cara penempatan: absolute */
+  position: absolute;
+  /* [ID] jarak dari semua sisi: 12% */
+  inset: 12%;
+  /* [ID] sudut membulat: 50% */
+  border-radius: 50%;
+  /* [ID] latar belakang: radial-gradient(circle, var(--kc) 0%, transpa… */
+  background: radial-gradient(circle, var(--kc) 0%, transparent 70%);
+  /* [ID] tingkat ketidaktransparanan: 0.35 */
+  opacity: 0.35;
+  /* [ID] transisi halus saat berubah: opacity 0.3s */
+  transition: opacity 0.3s;
+}
+/* [ID] bidak knight + sisi 0: variabel --kc. */
+.knight[data-side='0'] { --kc: rgba(110, 168, 255, 0.9); }
+/* [ID] bidak knight + sisi 1: variabel --kc. */
+.knight[data-side='1'] { --kc: rgba(255, 122, 47, 0.9); }
+/* [ID] bidak knight + yang sedang jalan + lapisan tambahan sebelum isi: tingkat ketidaktransparanan, animasi. */
+.knight.is-turn::before { opacity: 0.85; animation: aura 1.8s ease-in-out infinite; }
+/* [ID] gambar SVG di dalam bidak knight + yang sedang jalan: efek visual. */
+.knight.is-turn svg { filter: drop-shadow(0 0 10px var(--kc)) drop-shadow(0 6px 6px rgba(0, 0, 0, 0.65)); }
+/* [ID] bidak knight + bisa diklik: apakah bisa diklik, bentuk kursor mouse. */
+.knight.selectable { pointer-events: auto; cursor: pointer; }
+/* [ID] gambar SVG di dalam bidak knight + yang kalah: efek visual. */
+.knight.is-dead svg { filter: grayscale(0.9) brightness(0.55) drop-shadow(0 4px 4px rgba(0, 0, 0, 0.6)); }
+/* [ID] bidak knight + yang kalah + lapisan tambahan sebelum isi: tingkat ketidaktransparanan. */
+.knight.is-dead::before { opacity: 0; }
+/* [ID] Animasi "aura" (ditulis satu baris): aura knight yang sedang jalan. */
+@keyframes aura { 50% { transform: scale(1.18); opacity: 0.55; } }
+
+/* [ID] Gaya untuk: kanvas efek partikel. */
+.fx {
+  /* [ID] cara penempatan: absolute */
+  position: absolute;
+  /* [ID] jarak dari semua sisi: -40px */
+  inset: -40px;
+  /* [ID] lebar: calc(100% + 80px) */
+  width: calc(100% + 80px);
+  /* [ID] tinggi: calc(100% + 80px) */
+  height: calc(100% + 80px);
+  /* [ID] apakah bisa diklik: none */
+  pointer-events: none;
+  /* [ID] urutan tumpukan (lebih besar = di atas): 4 */
+  z-index: 4;
+}
+
+/* [ID] animasi guncang: animasi. */
+.shake { animation: shake 0.32s cubic-bezier(0.36, 0.07, 0.19, 0.97); }
+/* [ID] Animasi "shake": papan berguncang. */
+@keyframes shake {
+  /* [ID] posisi animasi 20%: geser/putar/skala. */
+  20% { transform: translate(-4px, 2px); }
+  /* [ID] posisi animasi 40%: geser/putar/skala. */
+  40% { transform: translate(4px, -2px); }
+  /* [ID] posisi animasi 60%: geser/putar/skala. */
+  60% { transform: translate(-3px, -1px); }
+  /* [ID] posisi animasi 80%: geser/putar/skala. */
+  80% { transform: translate(2px, 1px); }
+}
+
+/* Side panel */
+/* [ID] panel samping: lebar, cara tampil, jarak antar isi, perataan baris isi. */
+.side { width: min(100%, var(--bsize)); display: grid; gap: 12px; align-content: start; }
+/* [ID] Gaya untuk: panel "Otak AI"; panel riwayat. */
+.ai-panel, .log-panel {
+  /* [ID] sudut membulat: 18px */
+  border-radius: 18px;
+  /* [ID] garis tepi: 1px solid var(--line) */
+  border: 1px solid var(--line);
+  /* [ID] latar belakang: var(--panel) */
+  background: var(--panel);
+  /* [ID] jarak dalam: 14px */
+  padding: 14px;
+  /* [ID] cara tampil: grid */
+  display: grid;
+  /* [ID] jarak antar isi: 12px */
+  gap: 12px;
+}
+/* [ID] panel "Otak AI" + yang disembunyikan: cara tampil. */
+.ai-panel[hidden] { display: none; }
+/* [ID] kepala panel AI: cara tampil, perataan isi secara vertikal, perataan isi horizontal. */
+.ai-head { display: flex; align-items: center; justify-content: space-between; }
+/* [ID] judul h3 di dalam panel "Otak AI"; judul h3 di dalam panel riwayat: jarak luar, ukuran huruf, jarak antar huruf, ubah huruf besar/kecil, warna teks, ketebalan huruf. */
+.ai-panel h3, .log-panel h3 { margin: 0; font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); font-weight: 800; }
+/* [ID] animasi berpikir: cara tampil, perataan isi secara vertikal, jarak antar isi, ukuran huruf, ketebalan huruf, warna teks, tingkat ketidaktransparanan, transisi halus saat berubah. */
+.thinking { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; color: var(--ember-2); opacity: 0; transition: opacity 0.25s; }
+/* [ID] animasi berpikir + menyala: tingkat ketidaktransparanan. */
+.thinking.on { opacity: 1; }
+/* [ID] elemen i di dalam animasi berpikir: lebar, tinggi, sudut membulat, latar belakang, animasi. */
+.thinking i { width: 5px; height: 5px; border-radius: 50%; background: currentColor; animation: think 1s infinite ease-in-out; }
+/* [ID] elemen i + anak ke-2 di dalam animasi berpikir: jeda sebelum animasi. */
+.thinking i:nth-child(2) { animation-delay: 0.15s; }
+/* [ID] elemen i + anak ke-3 di dalam animasi berpikir: jeda sebelum animasi, jarak luar kanan. */
+.thinking i:nth-child(3) { animation-delay: 0.3s; margin-right: 4px; }
+/* [ID] Animasi "think" (ditulis satu baris): titik "berpikir" naik turun. */
+@keyframes think { 50% { transform: translateY(-4px); opacity: 0.4; } }
+/* [ID] grid statistik: cara tampil, susunan kolom grid, jarak antar isi. */
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+/* [ID] kotak statistik: jarak dalam, sudut membulat, latar belakang, garis tepi, lebar minimum. */
+.stat { padding: 10px 12px; border-radius: 12px; background: rgba(0, 0, 0, 0.25); border: 1px solid var(--line); min-width: 0; }
+/* [ID] teks kecil di dalam kotak statistik: cara tampil, ukuran huruf, warna teks, ubah huruf besar/kecil, jarak antar huruf, ketebalan huruf. */
+.stat small { display: block; font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; }
+/* [ID] teks tebal di dalam kotak statistik: cara tampil, ukuran huruf, angka sama lebar, jarak luar atas, aturan pindah baris, isi yang melebihi wadah, teks yang terpotong. */
+.stat b { display: block; font-size: 19px; font-variant-numeric: tabular-nums; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* [ID] statistik lebar penuh: posisi kolom grid. */
+.stat-wide { grid-column: 1 / -1; }
+/* [ID] teks tebal + kilat di dalam kotak statistik: animasi. */
+.stat b.flash { animation: stat-flash 0.6s ease-out; }
+/* [ID] Animasi "stat-flash" (ditulis satu baris): angka statistik berkilat. */
+@keyframes stat-flash { 0% { color: var(--ember-2); } 100% { color: var(--text); } }
+/* [ID] label kecil di dalam kotak statistik > teks tebal: ukuran huruf, ketebalan huruf, warna teks, jarak luar kiri, jarak antar huruf. */
+.stat b .tag { font-size: 11px; font-weight: 800; color: var(--ember-2); margin-left: 6px; letter-spacing: 0.04em; }
+
+/* [ID] daftar riwayat langkah: gaya penanda daftar, jarak luar, jarak dalam, tinggi maksimum, isi yang melebihi wadah, cara tampil, jarak antar isi, ukuran huruf, angka sama lebar, lebar scrollbar. */
+.log { list-style: none; margin: 0; padding: 0; max-height: 180px; overflow: auto; display: grid; gap: 4px; font-size: 13px; font-variant-numeric: tabular-nums; scrollbar-width: thin; }
+/* [ID] item daftar di dalam daftar riwayat langkah: cara tampil, susunan kolom grid, jarak antar isi, perataan isi secara vertikal, jarak dalam, sudut membulat, latar belakang. */
+.log li { display: grid; grid-template-columns: 28px 14px 1fr; gap: 8px; align-items: center; padding: 5px 8px; border-radius: 8px; background: rgba(0, 0, 0, 0.18); }
+/* [ID] nomor langkah di dalam daftar riwayat langkah > item daftar: warna teks, ketebalan huruf. */
+.log li .n { color: var(--faint); font-weight: 700; }
+/* [ID] titik warna pemain di dalam daftar riwayat langkah > item daftar: lebar, tinggi, sudut membulat, latar belakang. */
+.log li .sw { width: 10px; height: 10px; border-radius: 50%; background: var(--steel); }
+/* [ID] titik warna pemain di dalam daftar riwayat langkah > item daftar + langkah pemain 2: latar belakang. */
+.log li.s1 .sw { background: var(--ember); }
+/* [ID] teks tebal di dalam daftar riwayat langkah > item daftar > teks langkah: ketebalan huruf. */
+.log li .mv b { font-weight: 800; }
+/* [ID] tanda jebakan di riwayat di dalam daftar riwayat langkah > item daftar > teks langkah: warna teks, ketebalan huruf, jarak luar kiri. */
+.log li .mv .x { color: var(--danger); font-weight: 800; margin-left: 8px; }
+/* [ID] pesan riwayat kosong: warna teks, ukuran huruf. */
+.log-empty { color: var(--faint); font-size: 13px; }
+
+/* ---------- Modal ---------- */
+/* [ID] Gaya untuk: lapisan dialog. */
+.modal {
+  /* [ID] cara penempatan: fixed */
+  position: fixed;
+  /* [ID] jarak dari semua sisi: 0 */
+  inset: 0;
+  /* [ID] urutan tumpukan (lebih besar = di atas): 50 */
+  z-index: 50;
+  /* [ID] cara tampil: grid */
+  display: grid;
+  /* [ID] perataan isi ke tengah: center */
+  place-items: center;
+  /* [ID] jarak dalam: 16px */
+  padding: 16px;
+  /* [ID] latar belakang: radial-gradient(circle at 50% 40%, rgba(20, 1… */
+  background: radial-gradient(circle at 50% 40%, rgba(20, 10, 5, 0.55), rgba(5, 4, 6, 0.85));
+  /* [ID] efek blur pada latar di belakang: blur(6px) */
+  backdrop-filter: blur(6px);
+  /* [ID] efek blur latar (Safari): blur(6px) */
+  -webkit-backdrop-filter: blur(6px);
+  /* [ID] animasi: fade-in 0.35s ease */
+  animation: fade-in 0.35s ease;
+}
+/* [ID] lapisan dialog + yang disembunyikan: cara tampil. */
+.modal[hidden] { display: none; }
+/* [ID] Animasi "fade-in" (ditulis satu baris): memudar masuk. */
+@keyframes fade-in { from { opacity: 0; } }
+/* [ID] Gaya untuk: kartu dialog. */
+.modal-card {
+  /* [ID] lebar: min(420px, 100%) */
+  width: min(420px, 100%);
+  /* [ID] jarak dalam: 28px 24px 24px */
+  padding: 28px 24px 24px;
+  /* [ID] sudut membulat: 26px */
+  border-radius: 26px;
+  /* [ID] garis tepi: 1px solid var(--line-2) */
+  border: 1px solid var(--line-2);
+  /* [ID] latar belakang: linear-gradient(180deg, rgba(255, 255, 255, 0… */
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 40%), var(--panel-solid);
+  /* [ID] bayangan/pendaran kotak: var(--shadow) */
+  box-shadow: var(--shadow);
+  /* [ID] perataan teks: center */
+  text-align: center;
+  /* [ID] animasi: pop 0.5s var(--ease-spring) */
+  animation: pop 0.5s var(--ease-spring);
+}
+/* [ID] Animasi "pop" (ditulis satu baris): dialog muncul memantul. */
+@keyframes pop { from { transform: scale(0.88) translateY(14px); opacity: 0; } }
+/* [ID] lambang game over: lebar, tinggi, jarak luar, cara tampil, perataan isi ke tengah, sudut membulat, latar belakang. */
+.go-crest { width: 96px; height: 96px; margin: -72px auto 6px; display: grid; place-items: center; border-radius: 50%; background: radial-gradient(circle, rgba(255, 211, 107, 0.35), transparent 70%); }
+/* [ID] gambar SVG di dalam lambang game over: lebar, tinggi, efek visual, animasi. */
+.go-crest svg { width: 80px; height: 80px; filter: drop-shadow(0 0 18px rgba(255, 211, 107, 0.6)) drop-shadow(0 8px 10px rgba(0, 0, 0, 0.6)); animation: float 3s ease-in-out infinite; }
+/* [ID] judul h2 di dalam kartu dialog: jarak luar, jenis huruf, ukuran huruf, ketebalan huruf, jarak antar huruf. */
+.modal-card h2 { margin: 6px 0 4px; font-family: var(--font-display); font-size: 32px; font-weight: 900; letter-spacing: 0.03em; }
+/* [ID] judul h2 di dalam kartu dialog + menang: latar belakang, potong latar ke bentuk teks (Safari), potong latar ke bentuk teks, warna teks. */
+.modal-card.win h2 { background: linear-gradient(180deg, #fff3cf, #ffd36b 50%, #e09a1f); -webkit-background-clip: text; background-clip: text; color: transparent; }
+/* [ID] judul h2 di dalam kartu dialog + kalah: warna teks. */
+.modal-card.lose h2 { color: #d9d0c6; }
+/* [ID] lambang game over di dalam kartu dialog + kalah: latar belakang. */
+.modal-card.lose .go-crest { background: radial-gradient(circle, rgba(255, 90, 79, 0.25), transparent 70%); }
+/* [ID] gambar SVG di dalam kartu dialog + kalah > lambang game over: efek visual, animasi. */
+.modal-card.lose .go-crest svg { filter: grayscale(0.7) brightness(0.7) drop-shadow(0 8px 10px rgba(0, 0, 0, 0.6)); animation: none; }
+/* [ID] paragraf di dalam kartu dialog: jarak luar, warna teks. */
+.modal-card p { margin: 0; color: var(--muted); }
+/* [ID] statistik game over: jarak luar, cara tampil, perataan isi horizontal, jarak antar isi, ukuran huruf, warna teks. */
+.go-stats { margin: 16px 0 20px; display: flex; justify-content: center; gap: 16px; font-size: 14px; color: var(--muted); }
+/* [ID] teks tebal di dalam statistik game over: warna teks, ukuran huruf. */
+.go-stats b { color: var(--text); font-size: 18px; }
+/* [ID] tombol game over: cara tampil, jarak antar isi. */
+.go-actions { display: grid; gap: 10px; }
+/* [ID] pesan tunggu: jarak luar atas, ukuran huruf, warna teks. */
+.go-wait { margin-top: 12px !important; font-size: 13px; color: var(--ember-2) !important; }
+
+/* [ID] Gaya untuk: notifikasi singkat. */
+.toast {
+  /* [ID] cara penempatan: fixed */
+  position: fixed;
+  /* [ID] jarak dari kiri: 50% */
+  left: 50%;
+  /* [ID] jarak dari bawah: max(20px, env(safe-area-inset-bottom)) */
+  bottom: max(20px, env(safe-area-inset-bottom));
+  /* [ID] geser/putar/skala: translate(-50%, 30px) */
+  transform: translate(-50%, 30px);
+  /* [ID] urutan tumpukan (lebih besar = di atas): 60 */
+  z-index: 60;
+  /* [ID] lebar maksimum: calc(100% - 32px) */
+  max-width: calc(100% - 32px);
+  /* [ID] jarak dalam: 12px 18px */
+  padding: 12px 18px;
+  /* [ID] sudut membulat: 14px */
+  border-radius: 14px;
+  /* [ID] garis tepi: 1px solid var(--line-2) */
+  border: 1px solid var(--line-2);
+  /* [ID] latar belakang: var(--panel-solid) */
+  background: var(--panel-solid);
+  /* [ID] bayangan/pendaran kotak: var(--shadow) */
+  box-shadow: var(--shadow);
+  /* [ID] ketebalan huruf: 700 */
+  font-weight: 700;
+  /* [ID] tingkat ketidaktransparanan: 0 */
+  opacity: 0;
+  /* [ID] apakah bisa diklik: none */
+  pointer-events: none;
+  /* [ID] transisi halus saat berubah: opacity 0.25s, transform 0.35s var(--ease-out) */
+  transition: opacity 0.25s, transform 0.35s var(--ease-out);
+}
+/* [ID] notifikasi singkat + tampil: tingkat ketidaktransparanan, geser/putar/skala. */
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+/* [ID] notifikasi singkat + status buruk/merah: warna garis tepi. */
+.toast.bad { border-color: rgba(255, 90, 79, 0.5); }
+
+/* ---------- Points & leaderboard ---------- */
+/* [ID] kotak skor: cara tampil, perataan isi secara vertikal, jarak antar isi, tinggi, jarak dalam, sudut membulat, garis tepi, latar belakang, tinggi baris. */
+.score-pill { display: inline-flex; align-items: baseline; gap: 8px; height: 32px; padding: 0 12px; border-radius: 99px; border: 1px solid rgba(255, 211, 107, 0.35); background: var(--panel); line-height: 30px; }
+/* [ID] teks kecil di dalam kotak skor: ukuran huruf, ketebalan huruf, jarak antar huruf, ubah huruf besar/kecil, warna teks. */
+.score-pill small { font-size: 10.5px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+/* [ID] teks tebal di dalam kotak skor: ukuran huruf, ketebalan huruf, warna teks, angka sama lebar. */
+.score-pill b { font-size: 15px; font-weight: 800; color: #ffd36b; font-variant-numeric: tabular-nums; }
+/* [ID] teks tebal + kilat di dalam kotak skor: animasi. */
+.score-pill b.flash { animation: score-flash 0.7s var(--ease-out); }
+/* [ID] Animasi "score-flash" (ditulis satu baris): skor berkilat. */
+@keyframes score-flash { 0% { color: #fff3cf; text-shadow: 0 0 14px rgba(255, 211, 107, 0.9); } 100% { color: #ffd36b; text-shadow: none; } }
+
+/* [ID] bagian poin game over: jarak luar, jarak dalam, sudut membulat, garis tepi, latar belakang, perataan teks, cara tampil, jarak antar isi. */
+.go-score { margin: -6px 0 18px; padding: 12px 14px; border-radius: 16px; border: 1px solid var(--line); background: rgba(0, 0, 0, 0.25); text-align: left; display: grid; gap: 10px; }
+/* [ID] judul bagian poin: cara tampil, perataan isi horizontal, ukuran huruf, ketebalan huruf, jarak antar huruf, ubah huruf besar/kecil, warna teks. */
+.go-score-head { display: flex; justify-content: space-between; font-size: 11px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+/* [ID] rincian poin: gaya penanda daftar, jarak luar, jarak dalam, cara tampil, jarak antar isi, ukuran huruf, angka sama lebar. */
+.go-breakdown { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+/* [ID] item daftar di dalam rincian poin: cara tampil, perataan isi horizontal, jarak antar isi, warna teks. */
+.go-breakdown li { display: flex; justify-content: space-between; gap: 12px; color: var(--muted); }
+/* [ID] teks tebal di dalam rincian poin > item daftar: warna teks. */
+.go-breakdown li b { color: var(--text); }
+/* [ID] item daftar + baris total di dalam rincian poin: jarak luar atas, jarak dalam atas, garis tepi atas, warna teks, ketebalan huruf. */
+.go-breakdown li.total { margin-top: 4px; padding-top: 8px; border-top: 1px solid var(--line); color: var(--text); font-weight: 800; }
+/* [ID] teks tebal di dalam rincian poin > item daftar + baris total: jenis huruf, ukuran huruf, warna teks. */
+.go-breakdown li.total b { font-family: var(--font-display); font-size: 20px; color: #ffd36b; }
+/* [ID] tombol di dalam bagian poin game over: tinggi minimum. */
+.go-score .btn { min-height: 44px; }
+/* [ID] status kirim skor: ukuran huruf, perataan teks, tinggi minimum. */
+.go-submit-status { font-size: 12.5px; text-align: center; min-height: 1em; }
+/* [ID] status kirim skor + saat kosong: cara tampil. */
+.go-submit-status:empty { display: none; }
+/* [ID] status kirim skor + status baik/hijau: warna teks. */
+.go-submit-status.ok { color: var(--ok) !important; }
+/* [ID] status kirim skor + status buruk/merah: warna teks. */
+.go-submit-status.bad { color: var(--ember-2) !important; }
+
+/* [ID] dialog nama tim: cara tampil, jarak antar isi. */
+.name-card { display: grid; gap: 12px; }
+/* [ID] judul h2 di dalam dialog nama tim: jarak luar. */
+.name-card h2 { margin: 0 !important; }
+/* [ID] Gaya untuk: kolom nama tim. */
+.name-input {
+  /* [ID] lebar: 100% */
+  width: 100%;
+  /* [ID] tinggi minimum: 52px */
+  min-height: 52px;
+  /* [ID] jarak dalam: 0 16px */
+  padding: 0 16px;
+  /* [ID] sudut membulat: 14px */
+  border-radius: 14px;
+  /* [ID] garis tepi: 1px solid var(--line-2) */
+  border: 1px solid var(--line-2);
+  /* [ID] latar belakang: rgba(0, 0, 0, 0.35) */
+  background: rgba(0, 0, 0, 0.35);
+  /* [ID] warna teks: var(--text) */
+  color: var(--text);
+  /* [ID] pengaturan huruf: inherit */
+  font: inherit;
+  /* [ID] ukuran huruf: 18px */
+  font-size: 18px;
+  /* [ID] ketebalan huruf: 700 */
+  font-weight: 700;
+  /* [ID] perataan teks: center */
+  text-align: center;
+}
+/* [ID] pesan error nama: tinggi minimum, ukuran huruf, warna teks. */
+.name-error { min-height: 1.2em; font-size: 13px; color: var(--danger) !important; }
+
+/* [ID] tombol ganti tim: tinggi minimum, jarak dalam, ukuran huruf, porsi ruang flex. */
+.team-change { min-height: 40px; padding: 6px 14px; font-size: 13px; flex: none; }
+/* [ID] nama tim di layar Single Player: warna teks, ketebalan huruf, ukuran huruf. */
+#sp-team-name { color: var(--text); font-weight: 700; font-size: 14px; }
+
+/* [ID] tombol refresh leaderboard: jarak luar kiri, ukuran huruf. */
+.lb-refresh { margin-left: auto; font-size: 18px; }
+/* [ID] tombol refresh leaderboard + berputar: animasi. */
+.lb-refresh.spin { animation: lb-spin 0.8s linear infinite; }
+/* [ID] Animasi "lb-spin" (ditulis satu baris): ikon refresh berputar. */
+@keyframes lb-spin { to { transform: rotate(360deg); } }
+/* [ID] subjudul leaderboard: jarak luar, warna teks, ukuran huruf, ketebalan huruf, jarak antar huruf, ubah huruf besar/kecil. */
+.lb-sub { margin: -10px 0 0; color: var(--muted); font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+/* [ID] status leaderboard: ukuran huruf, warna teks. */
+.lb-status { font-size: 13px; color: var(--muted); }
+/* [ID] tabel leaderboard: sudut membulat, garis tepi, latar belakang, jarak dalam. */
+.lb { border-radius: 18px; border: 1px solid var(--line); background: var(--panel); padding: 8px; }
+/* [ID] daftar tim: gaya penanda daftar, jarak luar, jarak dalam, cara tampil, jarak antar isi. */
+.lb-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+/* [ID] baris leaderboard: cara tampil, susunan kolom grid, jarak antar isi, perataan isi secara vertikal, jarak dalam, sudut membulat, angka sama lebar. */
+.lb-row { display: grid; grid-template-columns: 34px minmax(0, 1fr) 72px 52px 44px; gap: 8px; align-items: center; padding: 9px 10px; border-radius: 12px; font-variant-numeric: tabular-nums; }
+/* [ID]  di dalam baris leaderboard > :nth-child > : perataan teks. */
+.lb-row > :nth-child(n + 3) { text-align: right; }
+/* [ID] baris judul leaderboard: ukuran huruf, ketebalan huruf, jarak antar huruf, ubah huruf besar/kecil, warna teks, jarak dalam atas, jarak dalam bawah. */
+.lb-head { font-size: 10.5px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); padding-top: 6px; padding-bottom: 6px; }
+/* [ID] baris leaderboard di dalam daftar tim: latar belakang. */
+.lb-list .lb-row { background: rgba(0, 0, 0, 0.2); }
+/* [ID] nomor peringkat: jenis huruf, ketebalan huruf, warna teks, perataan teks. */
+.lb-rank { font-family: var(--font-display); font-weight: 900; color: var(--muted); text-align: center; }
+/* [ID] nama tim: ketebalan huruf, aturan pindah baris, isi yang melebihi wadah, teks yang terpotong. */
+.lb-name { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* [ID] teks tebal di dalam baris leaderboard: ketebalan huruf. */
+.lb-row b { font-weight: 800; }
+/* [ID]  di dalam baris leaderboard > span + :nth-child > : warna teks. */
+.lb-row > span:nth-child(n + 4) { color: var(--muted); }
+/* [ID] nomor peringkat di dalam baris leaderboard + peringkat 1: warna teks, bayangan teks. */
+.lb-row.top1 .lb-rank { color: #ffd36b; text-shadow: 0 0 12px rgba(255, 211, 107, 0.6); }
+/* [ID] nomor peringkat di dalam baris leaderboard + peringkat 2: warna teks. */
+.lb-row.top2 .lb-rank { color: #d9e2ee; }
+/* [ID] nomor peringkat di dalam baris leaderboard + peringkat 3: warna teks. */
+.lb-row.top3 .lb-rank { color: #e0975a; }
+/* [ID] baris leaderboard + tim saya: latar belakang, bayangan/pendaran kotak. */
+.lb-row.me { background: linear-gradient(90deg, rgba(255, 122, 47, 0.2), rgba(255, 122, 47, 0.05)); box-shadow: 0 0 0 1px rgba(255, 122, 47, 0.5) inset; }
+/* [ID] pesan leaderboard kosong: jarak dalam, perataan teks, warna teks. */
+.lb-empty { padding: 22px 10px; text-align: center; color: var(--muted); }
+/* [ID] info skor tertunda: jarak luar, ukuran huruf, warna teks. */
+.lb-pending { margin: 0; font-size: 13px; color: var(--ember-2); }
+
+/* [ID] label poin per langkah: ukuran huruf, ketebalan huruf, warna teks, angka sama lebar. */
+.diff-pts { font-size: 11px; font-weight: 800; color: #ffd36b; font-variant-numeric: tabular-nums; }
+/* [ID] label poin per langkah di dalam kartu level + yang dipilih: warna teks. */
+.diff-card[aria-checked='true'] .diff-pts { color: #fff3cf; }
+/* [ID] kotak tabel poin: sudut membulat, garis tepi, latar belakang, jarak dalam, isi yang melebihi lebar. */
+.pts-box { border-radius: var(--radius); border: 1px solid var(--line); background: var(--panel); padding: 10px 12px; overflow-x: auto; }
+/* [ID] tabel poin: lebar, gabung garis tepi tabel, ukuran huruf, angka sama lebar. */
+.pts-table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+/* [ID] sel judul tabel di dalam tabel poin; sel tabel di dalam tabel poin: jarak dalam, perataan teks, aturan pindah baris. */
+.pts-table th, .pts-table td { padding: 6px 6px; text-align: right; white-space: nowrap; }
+/* [ID] sel judul tabel + anak pertama di dalam tabel poin: perataan teks. */
+.pts-table th:first-child { text-align: left; }
+/* [ID] sel judul tabel di dalam tabel poin > kepala tabel: ukuran huruf, ketebalan huruf, jarak antar huruf, ubah huruf besar/kecil, warna teks. */
+.pts-table thead th { font-size: 10.5px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); }
+/* [ID] sel judul tabel di dalam tabel poin > isi tabel: ketebalan huruf. */
+.pts-table tbody th { font-weight: 700; }
+/* [ID] teks kecil di dalam tabel poin > isi tabel > sel judul tabel: warna teks, ketebalan huruf, jarak luar kiri. */
+.pts-table tbody th small { color: var(--muted); font-weight: 600; margin-left: 4px; }
+/* [ID] sel tabel di dalam tabel poin: warna teks. */
+.pts-table td { color: var(--muted); }
+/* [ID] baris tabel di dalam tabel poin > isi tabel: garis tepi atas. */
+.pts-table tbody tr { border-top: 1px solid var(--line); }
+/* [ID] sel judul tabel di dalam tabel poin > baris tabel + yang dipilih; sel tabel di dalam tabel poin > baris tabel + yang dipilih: warna teks. */
+.pts-table tr.is-selected th, .pts-table tr.is-selected td { color: #ffd36b; }
+/* [ID] baris tabel + yang dipilih di dalam tabel poin: latar belakang. */
+.pts-table tr.is-selected { background: rgba(255, 211, 107, 0.06); }
+/* [ID] catatan poin: jarak luar, ukuran huruf, warna teks. */
+.pts-note { margin: 8px 0 0; font-size: 12.5px; color: var(--muted); }
+/* [ID] item daftar di dalam daftar riwayat langkah: susunan kolom grid. */
+.log li { grid-template-columns: 28px 14px 1fr auto; }
+/* [ID] poin langkah di dalam daftar riwayat langkah > item daftar: ketebalan huruf, warna teks, ukuran huruf. */
+.log li .pts { font-weight: 800; color: #ffd36b; font-size: 12px; }
+
+/* Admin page */
+/* [ID] kartu masuk admin; form editor poin admin: cara tampil, jarak antar isi. */
+.admin-card, .admin-editor { display: grid; gap: 14px; }
+/* [ID] kartu masuk admin: jarak dalam, sudut membulat, garis tepi, latar belakang. */
+.admin-card { padding: 16px; border-radius: var(--radius); border: 1px solid var(--line); background: var(--panel); }
+/* [ID] grid kolom isian admin: cara tampil, susunan kolom grid, jarak antar isi. */
+.admin-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+/* [ID] grid 4 kolom pengali: susunan kolom grid. */
+.admin-grid-4 { grid-template-columns: repeat(4, 1fr); }
+/* [ID] kolom isian: cara tampil, jarak antar isi, ukuran huruf, ketebalan huruf, warna teks. */
+.field { display: grid; gap: 6px; font-size: 13px; font-weight: 700; color: var(--muted); }
+/* [ID] teks kecil di dalam kolom isian: ketebalan huruf, warna teks. */
+.field small { font-weight: 500; color: var(--faint); }
+/* [ID] Gaya untuk: kolom isian di dalam kolom isian. */
+.field input {
+  /* [ID] lebar: 100% */
+  width: 100%;
+  /* [ID] tinggi minimum: 46px */
+  min-height: 46px;
+  /* [ID] jarak dalam: 0 12px */
+  padding: 0 12px;
+  /* [ID] sudut membulat: 12px */
+  border-radius: 12px;
+  /* [ID] garis tepi: 1px solid var(--line-2) */
+  border: 1px solid var(--line-2);
+  /* [ID] latar belakang: rgba(0, 0, 0, 0.35) */
+  background: rgba(0, 0, 0, 0.35);
+  /* [ID] warna teks: var(--text) */
+  color: var(--text);
+  /* [ID] pengaturan huruf: inherit */
+  font: inherit;
+  /* [ID] ukuran huruf: 16px */
+  font-size: 16px;
+  /* [ID] ketebalan huruf: 700 */
+  font-weight: 700;
+  /* [ID] angka sama lebar: tabular-nums */
+  font-variant-numeric: tabular-nums;
+}
+/* [ID] tombol aksi admin: cara tampil, jarak antar isi, jarak luar atas. */
+.admin-actions { display: grid; gap: 10px; margin-top: 4px; }
+/* [ID] status halaman admin: jarak luar, tinggi minimum, ketebalan huruf, ukuran huruf. */
+.admin-status { margin: 0; min-height: 1.2em; font-weight: 700; font-size: 14px; }
+/* [ID] status halaman admin + status baik/hijau: warna teks. */
+.admin-status.ok { color: var(--ok); }
+/* [ID] status halaman admin + status buruk/merah: warna teks. */
+.admin-status.bad { color: var(--danger); }
+
+/* ---------- Responsive ---------- */
+/* [ID] Layar sempit (lebar ≤ 760px, tablet/HP): aturan berikut menimpa yang di atas. */
+@media (max-width: 760px) {
+  /* [ID] grid langkah: susunan kolom grid. */
+  .steps { grid-template-columns: 1fr; }
+  /* [ID] kartu langkah Cara Bermain: cara tampil, susunan kolom grid, perataan isi secara vertikal. */
+  .step { display: grid; grid-template-columns: 120px 1fr; align-items: center; }
+  /* [ID] papan mini 5x5 di dalam kartu langkah Cara Bermain: posisi baris grid. */
+  .step .mini-board { grid-row: 1 / span 2; }
+  /* [ID] tombol online: susunan kolom grid. */
+  .online-actions { grid-template-columns: 1fr; }
+}
+
+/* [ID] Layar HP (lebar ≤ 520px): ukuran dan jarak diperkecil. */
+@media (max-width: 520px) {
+  /* [ID] badan halaman: ukuran huruf. */
+  body { font-size: 14px; }
+  /* [ID] grid kartu level: susunan kolom grid. */
+  .diff-grid { grid-template-columns: repeat(2, 1fr); }
+  /* [ID] kartu pemain: susunan kolom grid, jarak dalam. */
+  .pcard { grid-template-columns: auto 1fr; padding: 7px 8px; }
+  /* [ID] jumlah lompatan kartu pemain: posisi kolom grid, arah susunan flex, jarak antar isi, garis tepi kiri, jarak dalam kiri, perataan isi horizontal. */
+  .pcard-mob { grid-column: 1 / -1; flex-direction: row; gap: 6px; border-left: 0; padding-left: 0; justify-content: flex-start; }
+  /* [ID] teks tebal di dalam jumlah lompatan kartu pemain: ukuran huruf. */
+  .pcard-mob b { font-size: 15px; }
+  /* [ID] teks kecil di dalam jumlah lompatan kartu pemain: jarak luar atas. */
+  .pcard-mob small { margin-top: 0; }
+  /* [ID] knight kartu pemain: lebar, tinggi. */
+  .pcard-knight { width: 28px; height: 28px; }
+  /* [ID] tulisan VS: ukuran huruf. */
+  .vs { font-size: 11px; }
+  /* [ID] baris leaderboard: susunan kolom grid, jarak antar isi, jarak dalam, ukuran huruf. */
+  .lb-row { grid-template-columns: 24px minmax(0, 1fr) 58px 50px 38px; gap: 6px; padding: 8px; font-size: 13.5px; }
+  /* [ID] baris judul leaderboard: ukuran huruf, jarak antar huruf. */
+  .lb-head { font-size: 9.5px; letter-spacing: 0.04em; }
+  /* [ID] grid kolom isian admin; grid 4 kolom pengali: susunan kolom grid. */
+  .admin-grid, .admin-grid-4 { grid-template-columns: repeat(2, 1fr); }
+  /* [ID] tabel poin: ukuran huruf. */
+  .pts-table { font-size: 12px; }
+  /* [ID] sel judul tabel di dalam tabel poin; sel tabel di dalam tabel poin: jarak dalam. */
+  .pts-table th, .pts-table td { padding: 6px 4px; }
+  /* [ID] teks kecil di dalam kotak skor: cara tampil. */
+  .score-pill small { display: none; }
+  /* [ID] layar: jarak dalam kiri, jarak dalam kanan. */
+  .screen { padding-left: 12px; padding-right: 12px; }
+  /* [ID] tata letak layar game: variabel --bsize. */
+  .game-layout { --bsize: min(calc(100vw - 24px), calc(100svh - 250px), 600px); }
+  /* [ID] bingkai papan: jarak dalam, sudut membulat. */
+  .board-shell { padding: 5px; border-radius: 16px; }
+  /* [ID] papan 7x7: variabel --gap. */
+  .board { --gap: 2px; }
+  /* [ID] kotak papan: sudut membulat. */
+  .cell { border-radius: 6px; }
+}
+
+/* [ID] Layar lebar (≥ 1040px, laptop/desktop): tata letak tiga kolom. */
+@media (min-width: 1040px) {
+  /* [ID] Gaya untuk: tata letak layar game. */
+  .game-layout {
+    /* [ID] variabel --bsize (ukuran papan) = min(calc(100vw - 680px), calc(100svh - 140px)… */
+    --bsize: min(calc(100vw - 680px), calc(100svh - 140px), 660px);
+    /* [ID] susunan kolom grid: 250px var(--bsize) 300px */
+    grid-template-columns: 250px var(--bsize) 300px;
+    /* [ID] perataan isi secara vertikal: start */
+    align-items: start;
+    /* [ID] perataan isi horizontal: center */
+    justify-content: center;
+    /* [ID] jarak antar isi: 24px */
+    gap: 24px;
+  }
+  /* [ID] kolom kartu pemain: lebar, susunan kolom grid, jarak antar isi, jarak luar atas. */
+  .players { width: 100%; grid-template-columns: 1fr; gap: 10px; margin-top: 56px; }
+  /* [ID] kartu pemain: jarak dalam, susunan kolom grid. */
+  .pcard { padding: 14px; grid-template-columns: auto 1fr auto; }
+  /* [ID] knight kartu pemain: lebar, tinggi. */
+  .pcard-knight { width: 44px; height: 44px; }
+  /* [ID] nama pemain: ukuran huruf. */
+  .pcard-name { font-size: 16px; }
+  /* [ID] tulisan VS: perataan teks. */
+  .vs { text-align: center; }
+  /* [ID] panel samping: lebar, jarak luar atas. */
+  .side { width: 100%; margin-top: 56px; }
+  /* [ID] daftar riwayat langkah: tinggi maksimum, tinggi minimum. */
+  .log { max-height: calc(100svh - 520px); min-height: 120px; }
+}
+
+/* [ID] Kalau pengguna meminta animasi dikurangi: hampir matikan semua animasi. */
+@media (prefers-reduced-motion: reduce) {
+  /* [ID] *; * + lapisan tambahan sebelum isi; * + lapisan tambahan sesudah isi: lama animasi, jumlah pengulangan animasi, lama transisi. */
+  *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+}

@@ -1,0 +1,135 @@
+<h2>Peta Belajarmu</h2>
+<div class="box goal">
+<h4>Setelah mempelajari guide ini, kamu bisa:</h4>
+<ul>
+  <li>Menjelaskan bagaimana papan, knight, kotak terbakar, jebakan, dan penanda lompatan legal digambar.</li>
+  <li>Menjelaskan BFS langkah demi langkah dan menghitung jarak knight dengan tangan.</li>
+  <li>Menjelaskan cara wilayah (territory) dihitung dari dua hasil BFS, termasuk aturan seri.</li>
+  <li>Menjelaskan pemain pembanding (acak dan greedy) serta cara win rate dan waktu respons diukur.</li>
+</ul>
+</div>
+<h3>Tugasmu di Timeline (Bab 2.3)</h3>
+<table class="t">
+  <tr><th>Minggu</th><th>Pekerjaan</th><th>Kode</th></tr>
+  <tr><td>1–2</td><td>Antarmuka: papan, knight, kotak terbakar/jebakan, penanda lompatan legal, penunjuk giliran, pesan menang/kalah</td><td><code>board.js</code>, <code>fx.js</code>, <code>css/style.css</code>, <code>index.html</code>, <code>main.js</code> (<code>ui</code>)</td></tr>
+  <tr><td>2–3</td><td>BFS: jumlah lompatan ke setiap kotak, wilayah, skor evaluasi</td><td><code>ai.js</code>: <code>bfs()</code>, bagian wilayah di <code>evaluate()</code></td></tr>
+  <tr><td>3</td><td>Penyatuan BFS + DFS ke evaluasi (bersama Shatrya)</td><td><code>ai.js</code>: <code>evaluate()</code></td></tr>
+  <tr><td>3</td><td>Simulasi win rate vs acak &amp; greedy, waktu respons per level</td><td><code>tests/run.mjs</code> bagian 3–4; <code>randomMove()</code>, <code>greedyMove()</code></td></tr>
+</table>
+
+{{include:common-overview}}
+
+<h2>Antarmuka: Bagaimana Papan Digambar</h2>
+<h3>Prinsip: tampilan tidak menyimpan aturan</h3>
+<p><code>board.js</code> hanya <b>menggambar</b>. Ia tidak tahu aturan dan tidak menyimpan state game. <code>game.js</code> memberi tahu apa yang harus digambar lewat objek <code>view</code>. Pemisahan ini membuat aturan cukup ditulis sekali di <code>rules.js</code>.</p>
+{{fn:js/board.js:constructor}}
+<ul>
+  <li>49 <code>&lt;button&gt;</code> dibuat sekali, bukan setiap giliran. Tombol dipakai (bukan <code>div</code>) supaya bisa diklik dengan keyboard dan dibaca screen reader.</li>
+  <li>Kotak gelap/terang memakai rumus <code>(r + c) % 2</code>, sama seperti papan catur.</li>
+  <li>Label koordinat (a–g, 1–7) hanya di baris bawah dan kolom kiri.</li>
+  <li>Satu listener klik di papan (<i>event delegation</i>), bukan 49 listener. <code>closest('.cell')</code> mencari kotak yang diklik.</li>
+  <li>Kanvas <code>.fx</code> di atas papan untuk partikel api dan debu.</li>
+</ul>
+{{fn:js/board.js:render}}
+<p><code>render()</code> dipanggil setiap ada perubahan. Ia hanya menyalakan/mematikan <b>class CSS</b>: <code>burned</code>, <code>trap</code>, <code>legal</code> (titik penanda lompatan), <code>trappable</code>, <code>threat</code> (kotak tujuan lawan yang bagus untuk dijebak), <code>last-land</code>, <code>last-trap</code>. Semua tampilan visual ditentukan CSS. <code>aria-label</code> diisi supaya pembaca layar bisa menyebut "d4 open, jump here".</p>
+{{lines:css/style.css:638:665}}
+<p>Papan memakai <b>CSS Grid</b> 7 × 7 (<code>repeat(7, 1fr)</code>), jadi ukurannya otomatis mengikuti layar. Warna diambil dari variabel di <code>:root</code> (misalnya <code>--cell-a</code>), sehingga tema cukup diubah di satu tempat.</p>
+
+<h3>Animasi lompatan</h3>
+{{fn:js/board.js:animateJump}}
+<p>Knight bergerak dalam busur: dari kotak asal, naik ke titik tengah (<code>translateY(-42%)</code>, diperbesar 1,28×), turun sedikit melewati tujuan (0,94×), lalu diam. Memakai Web Animations API (<code>element.animate</code>). Kalau pengguna memilih <i>reduce motion</i> di sistem operasinya, animasi dilewati. Setelah mendarat, efek debu <code>'land'</code> dipanggil.</p>
+{{fn:js/board.js:burn}}
+{{fn:js/board.js:trap}}
+
+<h3>Penunjuk giliran dan pesan menang/kalah</h3>
+{{fn:js/main.js:update}}
+<p>Setiap refresh, kartu pemain menampilkan nama, warna, dan <b>mobilitas</b> (jumlah lompatan legal). Kalau tinggal ≤ 1, angkanya merah berkedip (<code>danger</code>), jadi pemain tahu sedang terancam. Status di atas papan berubah warna sesuai giliran, dan menjadi merah saat fase jebakan.</p>
+{{fn:js/main.js:over}}
+
+<h3>Efek partikel</h3>
+<p><code>fx.js</code> menggambar api (<code>ember</code>), debu (<code>debris</code>), debu mendarat (<code>land</code>), kembang api menang (<code>victory</code>), dan label poin "+N" di sebuah <code>&lt;canvas&gt;</code>. Setiap partikel punya posisi, kecepatan, gravitasi, umur; setiap frame (<code>requestAnimationFrame</code>) posisinya diperbarui dan partikel yang habis umurnya dibuang. Ini hanya tampilan, tidak mempengaruhi AI.</p>
+
+<h2>BFS: Breadth-First Search</h2>
+<h3>Ide</h3>
+<p>BFS menelusuri graf <b>per lapisan</b>: semua kotak berjarak 1 lompatan, lalu semua kotak berjarak 2, dan seterusnya. Karena itu, saat sebuah kotak pertama kali ditemukan, jaraknya pasti yang <b>terpendek</b>. Struktur datanya adalah <b>antrian</b> (queue, FIFO): yang masuk pertama keluar pertama.</p>
+<p>Di sini, <b>graf</b> = 49 kotak, dan dua kotak terhubung kalau bisa dicapai dengan satu lompatan knight dan kotak tujuannya masih terbuka.</p>
+{{bfs:a1}}
+{{bfs:d4}}
+<p>Perhatikan: dari pojok a1 butuh sampai 5 lompatan untuk mencapai sebagian kotak, sedangkan dari tengah d4 paling jauh 4. Knight di tengah menguasai papan lebih cepat, dan itulah yang diukur oleh wilayah.</p>
+
+<h3>Kode BFS</h3>
+{{fn:js/ai.js:bfs}}
+<table class="t">
+  <tr><th>Baris</th><th>Arti</th></tr>
+  <tr><td><code>dist.fill(-1)</code></td><td>Semua kotak awalnya "belum dicapai" (−1).</td></tr>
+  <tr><td><code>dist[start] = 0</code></td><td>Kotak knight sendiri berjarak 0.</td></tr>
+  <tr><td><code>queue</code>, <code>head</code>, <code>tail</code></td><td>Antrian dibuat dari array biasa: <code>head</code> menunjuk yang akan diambil, <code>tail</code> tempat memasukkan. Lebih cepat daripada <code>array.shift()</code>.</td></tr>
+  <tr><td><code>while (head &lt; tail)</code></td><td>Selama antrian belum kosong.</td></tr>
+  <tr><td><code>const d = dist[cur] + 1</code></td><td>Tetangga kotak ini berjarak satu lebih jauh.</td></tr>
+  <tr><td><code>if (dist[n] &lt; 0 &amp;&amp; open(...))</code></td><td>Hanya kotak yang belum dikunjungi dan masih terbuka (tidak terbakar, tidak dijebak, tidak ditempati knight lawan).</td></tr>
+</table>
+<div class="box tip"><p><b>Kenapa buffer dibuat sekali di luar fungsi?</b> <code>distA</code>, <code>distB</code>, <code>queue</code> dibuat sekali sebagai <code>Int8Array</code> di atas file. Evaluasi dipanggil puluhan ribu kali per langkah AI; membuat array baru setiap kali akan memperlambat dan membebani garbage collector.</p></div>
+<p><b>Kompleksitas:</b> setiap kotak masuk antrian paling banyak sekali dan setiap kotak punya maks. 8 tetangga, jadi O(V + E) = maks. 49 + 49 × 8 langkah. Sangat murah.</p>
+
+<h2>Wilayah (Territory) dan Skor Evaluasi</h2>
+<p>BFS dijalankan dua kali: dari knight P1 (<code>distA</code>) dan dari knight P2 (<code>distB</code>). Lalu untuk setiap kotak terbuka:</p>
+<ul>
+  <li>Hanya P1 yang bisa mencapai, atau P1 lebih cepat (<code>a &lt; b</code>) → wilayah P1 (+1).</li>
+  <li>Hanya P2, atau P2 lebih cepat → wilayah P2 (−1).</li>
+  <li><b>Seri</b> (<code>a == b</code>) → untuk pemain yang jalan berikutnya, karena dia akan sampai duluan.</li>
+  <li>Tidak bisa dicapai siapa pun → diabaikan.</li>
+</ul>
+{{territory}}
+{{lines:js/ai.js:92:107}}
+<p>Lalu <code>skor = terr + 0,5 × (mobilitas P1 − mobilitas P2)</code>. Mobilitas diberi bobot kecil (0,5) sebagai pemecah seri: dua posisi dengan wilayah sama, yang lompatannya lebih banyak dianggap sedikit lebih baik. Baris terakhir membalik tanda untuk P2, karena skor selalu dari sudut pandang <code>me</code> (pemain AI).</p>
+<div class="box key"><p><b>Kenapa wilayah masuk akal untuk Knight Trap?</b> Pemain kalah saat kehabisan lompatan. Kotak yang bisa kamu capai lebih dulu adalah kotak yang kemungkinan besar bisa kamu pakai sebelum lawan membakarnya atau menjebaknya. Semakin besar wilayahmu, semakin banyak "nafas" yang tersisa.</p></div>
+<p>Penyatuan dengan DFS: <code>evaluate()</code> menjalankan DFS dulu. Kalau papan sudah terbelah, wilayah tidak lagi relevan (setiap knight hanya bisa memakai areanya sendiri), jadi skor dihitung dari luas area × 100. BFS hanya dijalankan kalau papan belum terbelah. Detail DFS ada di guide Shatrya.</p>
+
+<h2>Pemain Pembanding (Baseline)</h2>
+<p>Proposal membandingkan AI dengan dua pemain sederhana. Keduanya ada di bagian bawah <code>js/ai.js</code>.</p>
+{{fn:js/ai.js:randomMove}}
+<p><b>Pemain acak</b>: pilih lompatan legal secara acak, lalu jebak kotak terbuka secara acak. <code>rng</code> bisa diganti generator dengan seed, supaya pengujian bisa diulang.</p>
+{{fn:js/ai.js:greedyMove}}
+<p><b>Pemain greedy</b>: lompat ke kotak yang memberi lompatan lanjutan terbanyak, lalu jebak kotak tujuan lawan yang paling berharga bagi lawan. Kalau beberapa pilihan sama bagusnya, pilih acak di antaranya (<code>bestBy</code>). Greedy hanya melihat satu langkah ke depan, tanpa memikirkan balasan lawan.</p>
+
+<h2>Pengujian Win Rate dan Waktu Respons</h2>
+{{lines:tests/run.mjs:148:199}}
+<ul>
+  <li><b>Setiap level</b> bermain 100 game vs acak dan 100 game vs greedy (<code>GAMES</code>; 20 kalau <code>--quick</code>).</li>
+  <li><b>Giliran pertama bergantian</b> (<code>aiSide = g % 2</code>) karena yang jalan pertama punya sedikit keuntungan; supaya adil, AI mendapat setengah game sebagai pemain pertama.</li>
+  <li><b>Seed per game</b> dibentuk dari level, nomor game, dan jenis lawan, jadi setiap game bisa diulang persis.</li>
+  <li><b>Setiap langkah dicek legal</b> dengan <code>validateMove</code>; kalau AI pernah membuat langkah ilegal, tes gagal.</li>
+  <li><b>Waktu respons</b>: <code>res.timeMs</code> dari setiap langkah AI disimpan, lalu dihitung rata-rata, p95 (diurutkan, ambil posisi 95%), dan maksimum.</li>
+</ul>
+
+{{include:common-results}}
+{{include:common-points}}
+
+<h2>Latihan</h2>
+<div class="box ex"><h4>Latihan 1: BFS dengan tangan</h4>
+<p>Knight di b1 (papan kosong). Sebutkan semua kotak berjarak 1. Berapa jarak ke b2?</p>
+<p><b>Jawaban:</b> jarak 1: a3, c3, d2. b2 butuh 3 lompatan (contoh: b1 → d2 → c4 → b2). Kotak yang bersebelahan langsung justru jauh untuk knight.</p></div>
+<div class="box ex"><h4>Latihan 2: Aturan seri</h4>
+<p>Sebuah kotak berjarak 2 dari P1 dan 2 dari P2, dan sekarang giliran P2. Kotak itu masuk wilayah siapa? Mengapa?</p>
+<p><b>Jawaban:</b> P2, karena P2 yang jalan berikutnya dan akan mencapainya lebih dulu (<code>terr += turn === 0 ? 1 : -1</code>).</p></div>
+<div class="box ex"><h4>Latihan 3: Coba di kode</h4>
+<ol><li>Di <code>evaluate()</code>, ubah bobot mobilitas 0,5 menjadi 0, jalankan <code>node tests/run.mjs --quick</code>, bandingkan win rate vs greedy. (Kembalikan setelahnya.)</li>
+<li>Di <code>css/style.css</code>, ubah <code>--cell-a</code> dan <code>--cell-b</code> lalu buka game. Semua kotak ikut berubah karena memakai variabel.</li></ol></div>
+
+<h2>Pertanyaan Presentasi yang Mungkin Muncul</h2>
+<div class="qa"><p class="q">Kenapa BFS, bukan DFS, untuk menghitung jarak?</p><p class="a">BFS menelusuri per lapisan, jadi saat sebuah kotak pertama kali ditemukan, jaraknya pasti terpendek. DFS tidak menjamin jarak terpendek.</p></div>
+<div class="qa"><p class="q">Apa itu wilayah dan kenapa dipakai di evaluasi?</p><p class="a">Kotak yang bisa dicapai knight kita lebih cepat dari knight lawan. Karena kalah = kehabisan lompatan, punya lebih banyak kotak "milik sendiri" berarti bisa bertahan lebih lama.</p></div>
+<div class="qa"><p class="q">Kenapa ada 0,5 × mobilitas?</p><p class="a">Sebagai pemecah seri. Bobotnya kecil supaya wilayah tetap faktor utama, tetapi posisi dengan lompatan lebih banyak sedikit diutamakan.</p></div>
+<div class="qa"><p class="q">Bagaimana win rate diukur supaya adil?</p><p class="a">100 game per level per lawan, AI bergantian jalan pertama, seed tercatat, batas waktu 4 detik aktif, dan setiap langkah dicek legal.</p></div>
+<div class="qa"><p class="q">Kenapa animasi tidak membuat AI lambat?</p><p class="a">AI berjalan di Web Worker (thread lain). Animasi di thread utama, jadi keduanya tidak saling menunggu.</p></div>
+<div class="qa"><p class="q">Bagaimana pemain tahu lompatan mana yang legal?</p><p class="a"><code>game.view()</code> mengisi <code>legal</code> dengan <code>legalJumps()</code>, lalu <code>render()</code> memberi class <code>legal</code> yang menampilkan titik di kotak itu. Di fase jebakan, kotak tujuan lawan diberi class <code>threat</code> (bergaris).</p></div>
+
+<h2>Checklist Sebelum Presentasi</h2>
+<ul class="check">
+  <li>Bisa menghitung BFS knight dengan tangan di papan kecil.</li>
+  <li>Bisa menjelaskan papan wilayah posisi awal dan aturan seri.</li>
+  <li>Bisa menunjuk <code>render()</code> dan menjelaskan class CSS yang dinyalakan.</li>
+  <li>Hafal hasil win rate (100% vs acak; 57/74/93/86% vs greedy) dan waktu (Expert maks. 626 ms).</li>
+  <li>Bisa menjelaskan kenapa Expert vs greedy sedikit di bawah Hard.</li>
+  <li>Bisa menjelaskan alur satu giliran (Bab 4) tanpa melihat catatan.</li>
+</ul>

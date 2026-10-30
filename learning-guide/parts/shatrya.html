@@ -1,0 +1,158 @@
+<h2>Peta Belajarmu</h2>
+<div class="box goal">
+<h4>Setelah mempelajari guide ini, kamu bisa:</h4>
+<ul>
+  <li>Menjelaskan representasi papan (array 49 kotak) dan cara mengubah koordinat a1–g7 menjadi indeks.</li>
+  <li>Menjelaskan setiap fungsi aturan di <code>rules.js</code> dan bagaimana game memastikan langkah sah.</li>
+  <li>Menjelaskan DFS/flood fill dan cara mendeteksi papan yang sudah terbelah.</li>
+  <li>Menjelaskan bagaimana BFS dan DFS disatukan di <code>evaluate()</code>.</li>
+  <li>Menjalankan playtest dan mencatat hasilnya dengan benar.</li>
+</ul>
+</div>
+<h3>Tugasmu di Timeline (Bab 2.3)</h3>
+<table class="t">
+  <tr><th>Minggu</th><th>Pekerjaan</th><th>Kode</th></tr>
+  <tr><td>1</td><td>Setup proyek HTML/CSS/JS, representasi papan</td><td><code>index.html</code>, <code>config.js</code>, <code>createState()</code></td></tr>
+  <tr><td>2</td><td>Logika aturan: lompatan legal, bakar, jebakan, cek kalah</td><td><code>rules.js</code>; <code>game.js</code>: <code>handleCell()</code></td></tr>
+  <tr><td>2–3</td><td>DFS (flood fill): cek papan terbelah, luas area</td><td><code>ai.js</code>: <code>dfs()</code></td></tr>
+  <tr><td>3</td><td>Penyatuan BFS + DFS ke evaluasi (bersama Clarrence)</td><td><code>ai.js</code>: <code>evaluate()</code></td></tr>
+  <tr><td>3</td><td>Playtest ±10 orang, kuesioner, perbaikan bug</td><td>Lampiran di guide ini</td></tr>
+</table>
+
+{{include:common-overview}}
+
+<h2>Representasi Papan dan Setup Proyek</h2>
+<h3>Struktur proyek tanpa framework</h3>
+<p>Game ini HTML, CSS, dan JavaScript murni (ES modules), tanpa framework dan tanpa build step. <code>index.html</code> memuat satu script: <code>&lt;script type="module" src="js/main.js"&gt;</code>; sisanya dimuat lewat <code>import</code>. Karena AI berjalan di <i>module Web Worker</i>, halaman harus dibuka lewat server (misalnya <code>npx serve .</code>), tidak bisa dengan klik ganda file.</p>
+<h3>Dari koordinat ke indeks</h3>
+<table class="t">
+  <tr><th>Kotak</th><th>Baris (r)</th><th>Kolom (c)</th><th>Indeks = r × 7 + c</th></tr>
+  <tr><td>g7 (kanan atas)</td><td>0</td><td>6</td><td>6</td></tr>
+  <tr><td>d4 (tengah)</td><td>3</td><td>3</td><td>24</td></tr>
+  <tr><td>a1 (kiri bawah)</td><td>6</td><td>0</td><td>42</td></tr>
+</table>
+<p>Kebalikannya: <code>r = Math.floor(i / 7)</code>, <code>c = i % 7</code>. Nama kotak dibuat oleh <code>squareName()</code>:</p>
+{{fn:js/rules.js:squareName}}
+{{fn:js/rules.js:serialize}}
+{{fn:js/rules.js:deserialize}}
+<p><code>Int8Array</code> tidak bisa dikirim langsung lewat jaringan atau ke worker sebagai JSON biasa, jadi <code>serialize</code> mengubahnya ke array biasa. <code>deserialize</code> juga <b>memeriksa</b> data (panjang harus 49, <code>pos</code> harus array) dan melempar error kalau rusak. Ini penting untuk mode online, karena data dari pemain lain tidak boleh dipercaya begitu saja. <code>| 0</code> dan <code>&amp; 1</code> memaksa nilai menjadi bilangan bulat dan 0/1.</p>
+
+<h2>Logika Aturan (rules.js)</h2>
+{{fn:js/rules.js:canMove}}
+{{fn:js/rules.js:hasOpenSquare}}
+{{fn:js/rules.js:endTurn}}
+<p><code>canMove</code> sama seperti <code>legalJumps(...).length &gt; 0</code>, tetapi berhenti di lompatan legal pertama, jadi lebih cepat. <code>hasOpenSquare</code> dipakai untuk kasus langka: setelah lompat, tidak ada kotak terbuka yang bisa dijebak. Saat itu jebakan dilewati dan dicatat sebagai <code>trap = -1</code>.</p>
+<h3>Validasi langkah lengkap</h3>
+{{fn:js/rules.js:validateMove}}
+<ol>
+  <li><code>jump</code> dan <code>trap</code> harus bilangan bulat (menolak data aneh dari jaringan).</li>
+  <li>Game belum selesai.</li>
+  <li>Lompatan termasuk <code>legalJumps</code>.</li>
+  <li>Lompatan diterapkan ke <b>salinan</b> (<code>cloneState</code>), supaya state asli tidak berubah.</li>
+  <li>Kalau tidak ada kotak terbuka, jebakan harus −1. Kalau ada, jebakan harus kotak terbuka (bukan kotak knight mana pun, bukan kotak yang baru terbakar).</li>
+</ol>
+<p>Fungsi ini dipakai di tiga tempat: host online memeriksa langkah tamu, game memeriksa langkah AI sebelum dimainkan, dan server leaderboard memutar ulang seluruh game.</p>
+{{fn:js/rules.js:applyMove}}
+
+<h3>Input pemain: dua klik per giliran</h3>
+{{fn:js/game.js:handleCell}}
+<p><b>Fase <code>jump</code>:</b> klik di kotak yang bukan lompatan legal memutar suara "invalid". Kalau legal, <code>applyJump</code> dijalankan, kotak asal disimpan di <code>pendingFrom</code> (untuk tombol batal), dan animasi diputar. Selama animasi, fase menjadi <code>animating</code> sehingga klik diabaikan. <b>Fase <code>trap</code>:</b> klik harus di kotak terbuka; lalu <code>applyTrap</code> dan <code>completeHumanMove</code> mengakhiri giliran.</p>
+{{fn:js/game.js:undoJump}}
+<p>Batal lompat aman karena giliran baru dihitung setelah jebakan dipasang. Knight dikembalikan, dan kotak asal dibuat <code>EMPTY</code> lagi (tidak jadi terbakar).</p>
+
+<h2>DFS: Depth-First Search dan Flood Fill</h2>
+<h3>Ide</h3>
+<p>DFS menelusuri satu jalur <b>sedalam mungkin</b> sebelum mundur. Struktur datanya <b>tumpukan</b> (stack, LIFO): yang terakhir masuk keluar pertama. Di proyek ini DFS dipakai untuk <b>flood fill</b>: menandai semua kotak yang bisa dicapai knight lewat rangkaian lompatan, seperti tumpahan cat yang menyebar ke semua kotak yang terhubung.</p>
+<p>Untuk flood fill, urutan kunjungan tidak penting (yang penting <i>semua</i> kotak terhubung ditemukan), jadi DFS cocok dan sedikit lebih sederhana daripada BFS: tidak perlu menyimpan jarak.</p>
+{{fn:js/ai.js:dfs}}
+<table class="t">
+  <tr><th>Baris</th><th>Arti</th></tr>
+  <tr><td><code>mark.fill(0)</code></td><td>Semua kotak belum ditandai.</td></tr>
+  <tr><td><code>mark[start] = 2</code></td><td>Kotak awal diberi tanda khusus 2 supaya tidak ikut dihitung sebagai area dan tidak dikunjungi lagi.</td></tr>
+  <tr><td><code>stack[top++] = start</code></td><td>Push kotak awal ke tumpukan.</td></tr>
+  <tr><td><code>stack[--top]</code></td><td>Pop: ambil kotak paling atas.</td></tr>
+  <tr><td><code>mark[n] === 0 &amp;&amp; open(...)</code></td><td>Tetangga belum ditandai dan masih terbuka → tandai 1, tambah luas, push.</td></tr>
+  <tr><td><code>return size</code></td><td>Luas area = jumlah kotak yang bisa dicapai (kotak awal tidak dihitung).</td></tr>
+</table>
+<div class="box tip"><p><b>Kenapa stack berukuran <code>SIZE * 8</code>?</b> Ukuran aman: setiap kotak hanya di-push sekali (karena langsung ditandai), jadi 49 sebenarnya cukup, tetapi buffer lebih besar tidak berbahaya dan dibuat sekali saja.</p></div>
+
+<h3>Mendeteksi papan terbelah</h3>
+<p>DFS dijalankan dari kedua knight, dengan tanda di <code>markA</code> dan <code>markB</code>. Kalau tidak ada satu pun kotak yang ditandai 1 di keduanya, kedua knight hidup di area terpisah dan tidak bisa saling mengganggu lagi. Pemenangnya ditentukan oleh siapa yang areanya lebih luas (dia bisa melompat lebih lama).</p>
+{{split}}
+{{lines:js/ai.js:78:91}}
+
+<h2>Menyatukan BFS dan DFS di evaluate()</h2>
+{{fn:js/ai.js:evaluate}}
+<ol>
+  <li><b>DFS dulu</b> untuk kedua knight, hitung luas area.</li>
+  <li><b>Cek split:</b> apakah ada kotak yang dicapai keduanya?</li>
+  <li><b>Kalau terbelah:</b> skor = (areaA − areaB) × <code>SPLIT_WEIGHT</code> (100).</li>
+  <li><b>Kalau belum:</b> BFS dari kedua knight, hitung wilayah (bagian Clarrence), tambah 0,5 × selisih mobilitas.</li>
+  <li><b>Sudut pandang:</b> skor dihitung untuk P1, lalu tandanya dibalik kalau AI adalah P2.</li>
+</ol>
+<div class="box key"><p><b>Kenapa bobot 100?</b> Skor wilayah paling besar sekitar 49 + 4 (mobilitas) ≈ 53. Dengan × 100, selisih area 1 kotak pada papan terbelah (100) selalu lebih besar daripada keunggulan wilayah apa pun. Artinya AI lebih suka posisi yang <i>sudah pasti</i> menang daripada posisi terbuka yang hanya kelihatan bagus. Tes memeriksa ini: <code>SPLIT_WEIGHT &gt; 49 + 4</code>.</p></div>
+<p><b>Urutan DFS → BFS juga menghemat waktu:</b> kalau papan sudah terbelah, dua BFS tidak perlu dijalankan.</p>
+
+<h2>Pengujian Aturan</h2>
+{{lines:tests/run.mjs:38:108}}
+<p>Bagian 1 dari tes memeriksa setiap aturan: posisi awal, lompatan legal dari a1 (hanya b3 dan c2), kotak asal terbakar, jebakan tercatat, giliran berpindah, tidak bisa mendarat di kotak terbakar/jebakan/lawan, validasi jebakan, deteksi kalah, kasus tidak ada kotak tersisa, serialisasi, dan contoh papan terbelah untuk DFS.</p>
+
+<h2>Panduan Playtest (Tabel 2.2.3, baris 4)</h2>
+<p>Target proposal: sekitar 10 siswa SMA atau teman, kuesioner skala 1–5, <b>rata-rata kejelasan aturan minimal 4</b> dan tingkat tantangan dinilai sesuai. Tes otomatis tidak bisa menggantikan ini, dan hasilnya hanya boleh dilaporkan kalau benar-benar dilakukan.</p>
+<h3>Langkah</h3>
+<ol>
+  <li>Jelaskan aturan maksimal 1 menit (pakai layar "Cara Bermain"). Catat waktunya.</li>
+  <li>Peserta main 1 game di Easy, lalu 1 game di level pilihannya.</li>
+  <li>Jangan membantu saat bermain; catat di mana peserta bingung.</li>
+  <li>Isi kuesioner, lalu tanyakan satu hal yang paling membingungkan.</li>
+</ol>
+<h3>Kuesioner (skala 1 = sangat tidak setuju, 5 = sangat setuju)</h3>
+<table class="t">
+  <tr><th>No</th><th>Pernyataan</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th></tr>
+  <tr><td>1</td><td>Aturan game mudah dipahami.</td><td></td><td></td><td></td><td></td><td></td></tr>
+  <tr><td>2</td><td>Saya tahu kotak mana yang boleh saya lompati.</td><td></td><td></td><td></td><td></td><td></td></tr>
+  <tr><td>3</td><td>Saya mengerti kenapa saya menang atau kalah.</td><td></td><td></td><td></td><td></td><td></td></tr>
+  <tr><td>4</td><td>Tingkat kesulitan yang saya pilih terasa menantang tapi adil.</td><td></td><td></td><td></td><td></td><td></td></tr>
+  <tr><td>5</td><td>AI terasa "berpikir", bukan bergerak acak.</td><td></td><td></td><td></td><td></td><td></td></tr>
+  <tr><td>6</td><td>Saya ingin main lagi.</td><td></td><td></td><td></td><td></td><td></td></tr>
+</table>
+<h3>Catatan bug</h3>
+<table class="t">
+  <tr><th>No</th><th>Apa yang terjadi</th><th>Langkah untuk mengulang</th><th>Perangkat / browser</th><th>Status</th></tr>
+  <tr><td>1</td><td></td><td></td><td></td><td></td></tr>
+  <tr><td>2</td><td></td><td></td><td></td><td></td></tr>
+  <tr><td>3</td><td></td><td></td><td></td><td></td></tr>
+</table>
+<p>Laporkan: jumlah peserta, rata-rata tiap pernyataan, level yang dipilih, berapa yang menang, dan bug yang ditemukan beserta perbaikannya.</p>
+
+{{include:common-results}}
+{{include:common-points}}
+
+<h2>Latihan</h2>
+<div class="box ex"><h4>Latihan 1: Indeks</h4>
+<p>Berapa indeks e2 dan f5? Kotak apa yang berindeks 17?</p>
+<p><b>Jawaban:</b> e2: r = 7 − 2 = 5, c = 4 → 39. f5: r = 2, c = 5 → 19. Indeks 17: r = 2, c = 3 → d5.</p></div>
+<div class="box ex"><h4>Latihan 2: Validasi</h4>
+<p>Knight P1 di d4, P2 di e6, kotak b3 terbakar. Apakah langkah <code>{ jump: f5, trap: d4 }</code> sah?</p>
+<p><b>Jawaban:</b> Tidak. Lompatan ke f5 legal, tetapi setelah lompat, d4 terbakar, jadi tidak bisa dijebak. Tes "trap on burned origin rejected" memeriksa kasus ini.</p></div>
+<div class="box ex"><h4>Latihan 3: Flood fill</h4>
+<p>Pada contoh papan terbelah, area P1 = {b3, c2} dan P2 = {e6, f5, g3, g5}. Kenapa P1 tidak bisa mencapai f5 walaupun f5 terbuka?</p>
+<p><b>Jawaban:</b> Semua jalur dari b3/c2 ke f5 melewati kotak terbakar. DFS hanya menyebar ke tetangga yang terbuka, jadi f5 tidak pernah dicapai dari a1.</p></div>
+
+<h2>Pertanyaan Presentasi yang Mungkin Muncul</h2>
+<div class="qa"><p class="q">Kenapa papan disimpan sebagai array satu dimensi, bukan 7 × 7?</p><p class="a">Lebih cepat dan sederhana: satu angka per kotak, mudah disalin (<code>Int8Array</code>), dan tetangga knight sudah dihitung sebagai daftar indeks.</p></div>
+<div class="qa"><p class="q">Kenapa DFS untuk flood fill, bukan BFS?</p><p class="a">Untuk flood fill hanya perlu tahu kotak mana yang terhubung, bukan jaraknya. Keduanya benar; DFS dengan stack sedikit lebih sederhana. Proposal memakai keduanya untuk tujuan berbeda: BFS untuk jarak/wilayah, DFS untuk area/split.</p></div>
+<div class="qa"><p class="q">Bagaimana game mencegah langkah curang?</p><p class="a">Semua langkah melewati <code>legalJumps</code>/<code>isOpen</code>; langkah dari AI, pemain online, dan server diperiksa dengan <code>validateMove</code>. Aturan hanya ditulis sekali di <code>rules.js</code>.</p></div>
+<div class="qa"><p class="q">Apa arti "papan terbelah" dan kenapa skornya × 100?</p><p class="a">Kedua knight tidak lagi bisa mencapai kotak yang sama, jadi hasil game praktis ditentukan oleh luas area. × 100 memastikan situasi ini selalu dinilai lebih penting daripada skor wilayah (maks. ±53).</p></div>
+<div class="qa"><p class="q">Apa yang terjadi kalau tidak ada kotak untuk dijebak?</p><p class="a">Jebakan dilewati dan dicatat sebagai −1. <code>validateMove</code> hanya menerima −1 dalam kasus ini.</p></div>
+<div class="qa"><p class="q">Apa hasil playtest kalian?</p><p class="a">Laporkan angka nyata dari kuesioner. Kalau playtest belum selesai, katakan itu dengan jujur dan jelaskan rencananya.</p></div>
+
+<h2>Checklist Sebelum Presentasi</h2>
+<ul class="check">
+  <li>Bisa mengubah koordinat ke indeks dan sebaliknya tanpa kalkulator.</li>
+  <li>Bisa menunjuk fungsi untuk setiap aturan (a)–(e) di <code>rules.js</code>.</li>
+  <li>Bisa menjelaskan flood fill dengan contoh papan terbelah.</li>
+  <li>Bisa menjelaskan urutan DFS → BFS di <code>evaluate()</code> dan alasan bobot 100.</li>
+  <li>Data playtest sudah direkap (jumlah peserta, rata-rata, bug).</li>
+  <li>Bisa menjelaskan alur satu giliran (Bab 4) tanpa melihat catatan.</li>
+</ul>

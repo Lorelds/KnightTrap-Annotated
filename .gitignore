@@ -1,0 +1,5 @@
+node_modules/
+.vercel/
+.env*
+learning-guide/build-*.html
+learning-guide/__pycache__/

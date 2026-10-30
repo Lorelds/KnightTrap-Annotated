@@ -1,0 +1,16 @@
+<h2>Fitur Rally: Poin, Leaderboard, Admin</h2>
+<p>Fitur ini <b>tidak ada di proposal</b>; ditambahkan supaya game bisa dipakai di rally NPLC. Bukan bagian dari empat algoritma AI, tetapi mungkin ditanya saat demo.</p>
+<table class="t">
+  <tr><th>Level</th><th>Pengali</th><th>Per langkah</th><th>Bonus menang</th></tr>
+  <tr><td>Easy</td><td>×1</td><td>+10</td><td>+200</td></tr>
+  <tr><td>Medium</td><td>×1,5</td><td>+15</td><td>+300</td></tr>
+  <tr><td>Hard</td><td>×2</td><td>+20</td><td>+400</td></tr>
+  <tr><td>Expert</td><td>×2,5</td><td>+25</td><td>+500</td></tr>
+</table>
+<p>Hanya mode Single Player (lawan AI) yang memberi poin. Contoh: menang di Hard dengan 12 langkah = 12 × 20 + 400 = <b>640 poin</b>.</p>
+{{fn:js/scoring.js:scoreGame}}
+<ul>
+  <li><b>Anti curang:</b> browser hanya mengirim daftar langkah. Server (<code>api/score.js</code>) memutar ulang semua langkah dengan <code>rules.js</code> yang sama, menolak langkah ilegal atau game yang belum selesai, lalu menghitung poin sendiri.</li>
+  <li><b>Leaderboard:</b> total poin per tim dari semua game, urut total → jumlah menang → yang lebih dulu mengirim. Disimpan di Upstash Redis lewat Vercel.</li>
+  <li><b>Admin:</b> <code>/admin.html</code> dengan kunci <code>ADMIN_KEY</code> bisa mengubah poin per langkah, bonus menang, dan pengali tiap level.</li>
+</ul>

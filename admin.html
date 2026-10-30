@@ -1,0 +1,112 @@
+<!doctype html>
+<!-- [ID] Awal dokumen HTML halaman admin. -->
+<html lang="id">
+<!-- [ID] Bagian head. -->
+<head>
+  <!-- [ID] Pengodean UTF-8. -->
+  <meta charset="utf-8">
+  <!-- [ID] Lebar mengikuti layar. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <!-- [ID] Judul tab. -->
+  <title>Knight Trap Admin</title>
+  <!-- [ID] Minta mesin pencari tidak mengindeks halaman admin. -->
+  <meta name="robots" content="noindex, nofollow">
+  <!-- [ID] Warna bilah browser. -->
+  <meta name="theme-color" content="#0b0a0d">
+  <!-- [ID] Ikon tab knight. -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23141217'/%3E%3Cpath fill='%23ff8a3d' d='M20 45C21 40 24 37 27 35C24 35 20 36 17 35C13 34 11 31 12 28L13 26C17 20 24 15 31 12L34 5L38 11C45 15 48 24 47 32C46 38 45 42 44 45Z'/%3E%3Crect x='15' y='47' width='34' height='8' rx='3' fill='%23ff8a3d'/%3E%3C/svg%3E">
+  <!-- [ID] Koneksi awal ke Google Fonts. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <!-- [ID] Koneksi awal ke server font. -->
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- [ID] Muat font. -->
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- [ID] Pakai file gaya yang sama dengan game. -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<!-- [ID] Isi halaman. -->
+<body>
+  <!-- [ID] Kanvas bara latar belakang. -->
+  <canvas id="bg-embers" aria-hidden="true"></canvas>
+
+  <!-- [ID] Wadah aplikasi. -->
+  <main id="app">
+    <!-- [ID] Satu layar yang selalu aktif. -->
+    <section class="screen is-active">
+      <!-- [ID] Panel halaman. -->
+      <div class="panel-page">
+        <!-- [ID] Kepala halaman. -->
+        <header class="page-head">
+          <!-- [ID] Link kembali ke game. -->
+          <a class="icon-btn" href="./" aria-label="Back" style="text-decoration:none">←</a>
+          <!-- [ID] Judul. -->
+          <h2 data-i18n="adminTitle">Admin Poin</h2>
+        </header>
+
+        <!-- [ID] Form masuk. -->
+        <form class="admin-card" id="login" autocomplete="off">
+          <!-- [ID] Label dan kolom kunci admin. -->
+          <label class="field">
+            <!-- [ID] Teks label. -->
+            <span data-i18n="adminKey">Kunci admin</span>
+            <!-- [ID] Kolom kunci (type=password supaya tidak terlihat). -->
+            <input type="password" id="admin-key" required autocomplete="current-password">
+            <!-- [ID] Petunjuk. -->
+            <small data-i18n="adminKeyHint">Nilai ADMIN_KEY dari Vercel. Hanya disimpan di tab ini.</small>
+          </label>
+          <!-- [ID] Tombol Masuk. -->
+          <button class="btn btn-primary btn-block" type="submit" data-i18n="adminLoad">Masuk</button>
+        </form>
+
+        <!-- [ID] Form editor poin (tersembunyi sampai berhasil masuk); novalidate karena pemeriksaan dilakukan oleh admin.js. -->
+        <form id="editor" class="admin-editor" hidden novalidate>
+          <!-- [ID] Judul poin dasar. -->
+          <h3 class="label" data-i18n="adminPoints">Poin dasar</h3>
+          <!-- [ID] Grid kolom poin. -->
+          <div class="admin-grid">
+            <!-- [ID] Kolom poin per langkah (bilangan bulat). -->
+            <label class="field"><span data-i18n="adminMove">Per langkah</span><input type="number" name="move" min="0" step="1" inputmode="numeric"></label>
+            <!-- [ID] Kolom bonus menang (bilangan bulat). -->
+            <label class="field"><span data-i18n="adminWin">Bonus menang</span><input type="number" name="win" min="0" step="1" inputmode="numeric"></label>
+          </div>
+
+          <!-- [ID] Judul pengali per level. -->
+          <h3 class="label" data-i18n="adminMultipliers">Pengali per tingkat</h3>
+          <!-- [ID] Grid empat kolom pengali. -->
+          <div class="admin-grid admin-grid-4">
+            <!-- [ID] Pengali Easy (boleh desimal, langkah 0,01). -->
+            <label class="field"><span data-i18n="easy">Easy</span><input type="number" name="mult-easy" min="0" step="0.01" inputmode="decimal"></label>
+            <!-- [ID] Pengali Medium. -->
+            <label class="field"><span data-i18n="medium">Medium</span><input type="number" name="mult-medium" min="0" step="0.01" inputmode="decimal"></label>
+            <!-- [ID] Pengali Hard. -->
+            <label class="field"><span data-i18n="hard">Hard</span><input type="number" name="mult-hard" min="0" step="0.01" inputmode="decimal"></label>
+            <!-- [ID] Pengali Expert. -->
+            <label class="field"><span data-i18n="expert">Expert</span><input type="number" name="mult-expert" min="0" step="0.01" inputmode="decimal"></label>
+          </div>
+
+          <!-- [ID] Judul pratinjau. -->
+          <h3 class="label" data-i18n="adminPreview">Pratinjau</h3>
+          <!-- [ID] Kotak tabel pratinjau (diisi admin.js). -->
+          <div class="pts-box"><div id="admin-preview"></div></div>
+          <!-- [ID] Catatan: perubahan berlaku untuk game berikutnya. -->
+          <p class="pts-note" data-i18n="adminNote">Perubahan berlaku untuk game yang dikirim setelah disimpan.</p>
+
+          <!-- [ID] Tombol aksi. -->
+          <div class="admin-actions">
+            <!-- [ID] Tombol Simpan poin. -->
+            <button class="btn btn-primary btn-lg btn-block" type="submit" id="admin-save" data-i18n="adminSave">Simpan poin</button>
+            <!-- [ID] Tombol Kembalikan default. -->
+            <button class="btn btn-ghost" type="button" id="admin-reset" data-i18n="adminReset">Kembalikan default</button>
+          </div>
+        </form>
+
+        <!-- [ID] Status (berhasil hijau, gagal merah). -->
+        <p class="admin-status" id="admin-status" aria-live="polite"></p>
+      </div>
+    </section>
+  </main>
+
+  <!-- [ID] Muat admin.js. -->
+  <script type="module" src="js/admin.js"></script>
+</body>
+</html>

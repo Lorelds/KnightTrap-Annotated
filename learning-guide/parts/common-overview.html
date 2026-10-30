@@ -1,0 +1,125 @@
+<h2>Gambaran Proyek (Proposal Bab 1)</h2>
+
+<h3>Apa yang kita buat</h3>
+<p><b>Knight Trap</b> adalah varian dari permainan papan <i>Isolation</i> (1972). Dua knight ada di papan 7 × 7. Pada gilirannya, pemain:</p>
+<ol>
+  <li><b>Lompat</b>: menggerakkan knight seperti kuda catur (huruf L) ke kotak terbuka.</li>
+  <li><b>Bakar</b>: kotak yang ditinggalkan langsung terbakar dan tidak bisa dipakai lagi.</li>
+  <li><b>Jebak</b>: menghancurkan satu kotak terbuka lain di mana pun.</li>
+</ol>
+<p>Pemain yang <b>tidak punya lompatan legal</b> pada gilirannya kalah. Game ini dibuat untuk <b>rally games</b> (NPLC Universitas Ciputra, tema <i>Human vs AI</i>), jadi aturannya harus bisa dijelaskan dalam satu menit, satu game selesai dalam beberapa menit, dan lawan AI-nya tidak boleh terlalu mudah.</p>
+
+<h3>Masalah yang diselesaikan (Bab 1.2)</h3>
+<p>Kita harus membuat lawan AI yang (1) memilih langkah yang kuat, (2) cukup cepat untuk browser, dan (3) punya beberapa tingkat kesulitan. Ada dua tantangan utama:</p>
+<ul>
+  <li><b>Pohon permainan besar.</b> Satu langkah = pilihan lompatan (maks. 8) × pilihan kotak jebakan (bisa puluhan). Jumlah posisi meledak setiap giliran.</li>
+  <li><b>Menilai posisi tanpa main sampai habis.</b> Kita butuh <i>fungsi evaluasi</i> yang memberi skor pada posisi di tengah permainan.</li>
+</ul>
+<p>Solusinya, sesuai ketentuan tugas yang membatasi kita ke <b>empat algoritma</b>: <b>Minimax</b> + <b>Alpha-Beta Pruning</b> untuk mengambil keputusan, dan <b>BFS</b> + <b>DFS</b> sebagai dasar fungsi evaluasi.</p>
+
+<h3>Peta file kode</h3>
+<table class="t">
+  <tr><th>File</th><th>Isi</th><th>Pemilik utama (Timeline)</th></tr>
+  <tr><td><code>js/config.js</code></td><td>Konstanta: ukuran papan, posisi awal, kedalaman tiap level, batas AI, poin</td><td>Shatrya (setup), Louis (AI)</td></tr>
+  <tr><td><code>js/rules.js</code></td><td>Aturan game: lompatan legal, bakar, jebakan, cek kalah. Tidak menyentuh DOM</td><td>Shatrya</td></tr>
+  <tr><td><code>js/ai.js</code></td><td>Minimax + Alpha-Beta, BFS, DFS, fungsi evaluasi, pemain acak &amp; greedy</td><td>Louis (search), Clarrence (BFS), Shatrya (DFS)</td></tr>
+  <tr><td><code>js/ai.worker.js</code>, <code>js/ai-client.js</code></td><td>Menjalankan AI di Web Worker supaya tampilan tidak macet</td><td>Louis</td></tr>
+  <tr><td><code>js/game.js</code></td><td>Alur giliran: input pemain, giliran AI, animasi, game over</td><td>Shatrya &amp; Louis</td></tr>
+  <tr><td><code>js/board.js</code>, <code>js/fx.js</code>, <code>css/style.css</code>, <code>index.html</code></td><td>Tampilan papan, knight, efek api/jebakan, layout</td><td>Clarrence</td></tr>
+  <tr><td><code>js/main.js</code>, <code>js/i18n.js</code>, <code>js/audio.js</code></td><td>Layar menu, pengaturan, panel statistik, teks dua bahasa, suara</td><td>Clarrence &amp; Louis</td></tr>
+  <tr><td><code>js/net.js</code></td><td>Multiplayer online (PeerJS)</td><td>Tambahan di luar proposal</td></tr>
+  <tr><td><code>js/scoring.js</code>, <code>api/*</code>, <code>admin.html</code></td><td>Poin, leaderboard, halaman admin (fitur rally)</td><td>Tambahan di luar proposal</td></tr>
+  <tr><td><code>tests/run.mjs</code></td><td>Semua pengujian Bab 2.2</td><td>Louis, Clarrence (pengujian)</td></tr>
+</table>
+<div class="box tip"><p><b>Repo dengan komentar per baris.</b> Folder <code>KnightTrap-Annotated</code> berisi kode yang sama persis, tetapi setiap baris diberi komentar bahasa Indonesia. Pakai repo itu untuk belajar; potongan kode di guide ini diambil dari repo asli <code>KnightTrap</code> supaya nomor barisnya cocok dengan kode yang dijalankan.</p></div>
+
+<h2>Aturan Game → Kode (Proposal Bab 2.1)</h2>
+<p>Setiap aturan di proposal punya tempat yang jelas di <code>js/rules.js</code>. File ini adalah <b>satu-satunya sumber aturan</b>: tampilan, AI, mode online, dan server leaderboard semuanya memakai fungsi yang sama.</p>
+<table class="t">
+  <tr><th>Aturan proposal</th><th>Kode</th></tr>
+  <tr><td>Papan 7 × 7, array 49 kotak (kosong / terbakar / jebakan) + posisi 2 knight</td><td><code>createState()</code>, konstanta <code>EMPTY</code>, <code>BURNED</code>, <code>TRAP</code></td></tr>
+  <tr><td>(a) Knight bergerak huruf L</td><td><code>JUMPS</code> dan <code>NEIGHBORS</code> (dihitung sekali di awal)</td></tr>
+  <tr><td>(b) Kotak yang ditinggalkan terbakar</td><td><code>applyJump()</code></td></tr>
+  <tr><td>(c) Hancurkan satu kotak terbuka</td><td><code>applyTrap()</code>; validasi di <code>validateMove()</code></td></tr>
+  <tr><td>(d) Tidak boleh mendarat di kotak terbakar, jebakan, atau kotak lawan</td><td><code>isOpen()</code> dipakai oleh <code>legalJumps()</code></td></tr>
+  <tr><td>(e) Tidak punya lompatan legal = kalah</td><td><code>winner()</code> memakai <code>canMove()</code></td></tr>
+</table>
+
+<h3>Representasi papan</h3>
+<p>Kotak diberi nomor 0 sampai 48: <code>index = baris × 7 + kolom</code>, baris 0 adalah baris paling atas (rank 7). Jadi <b>a1 = 42</b> (kiri bawah) dan <b>g7 = 6</b> (kanan atas).</p>
+{{lines:js/config.js:3:8}}
+{{fn:js/rules.js:createState}}
+<p><code>cells</code> memakai <code>Int8Array</code> (array angka 8-bit) karena kecil dan cepat disalin. <code>pos[0]</code> adalah posisi knight P1, <code>pos[1]</code> knight P2, <code>turn</code> adalah siapa yang jalan (0 atau 1).</p>
+
+<h3>Tetangga knight dihitung sekali</h3>
+{{lines:js/rules.js:10:26}}
+<p>Untuk setiap kotak, kita coba 8 arah L dan simpan hanya yang masih di dalam papan. Hasilnya tabel 49 daftar. AI memanggil daftar ini jutaan kali, jadi menghitungnya sekali di awal menghemat banyak waktu.</p>
+
+<h3>Satu giliran = lompat, bakar, jebak</h3>
+{{fn:js/rules.js:isOpen}}
+{{fn:js/rules.js:legalJumps}}
+{{fn:js/rules.js:applyJump}}
+{{fn:js/rules.js:applyTrap}}
+{{fn:js/rules.js:winner}}
+<div class="box key"><p><b>Kenapa <code>winner()</code> mengembalikan <code>s.turn ^ 1</code>?</b> <code>^</code> adalah XOR. <code>0 ^ 1 = 1</code> dan <code>1 ^ 1 = 0</code>, jadi ini cara singkat menulis "pemain lainnya". Kalau yang sedang jalan tidak bisa bergerak, lawannya menang.</p></div>
+
+<h2>Alur Satu Giliran di Kode</h2>
+<p>Bagian ini menghubungkan semua file. Setiap anggota harus bisa menceritakan alur ini saat presentasi.</p>
+<figure class="diagram">
+<svg width="520" height="470" viewBox="0 0 520 470" font-family="Segoe UI, Arial" font-size="12">
+  <defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#7a6f63"/></marker></defs>
+  <g stroke="#7a6f63" stroke-width="1.4" marker-end="url(#ar)">
+    <line x1="260" y1="44" x2="260" y2="62"/><line x1="260" y1="104" x2="260" y2="122"/><line x1="260" y1="164" x2="260" y2="182"/>
+    <line x1="260" y1="224" x2="260" y2="242"/><line x1="260" y1="284" x2="260" y2="302"/><line x1="260" y1="344" x2="260" y2="362"/><line x1="260" y1="404" x2="260" y2="422"/>
+  </g>
+  <g>
+    <rect x="70" y="4" width="380" height="40" rx="8" fill="#dbe7ff"/><text x="260" y="22" text-anchor="middle" font-weight="700">1. Pemain klik kotak</text><text x="260" y="37" text-anchor="middle" fill="#5f5850">board.js: BoardView memanggil onCell(sq)</text>
+    <rect x="70" y="64" width="380" height="40" rx="8" fill="#dbe7ff"/><text x="260" y="82" text-anchor="middle" font-weight="700">2. Game.handleCell (game.js)</text><text x="260" y="97" text-anchor="middle" fill="#5f5850">fase 'jump': cek legalJumps → applyJump (bakar)</text>
+    <rect x="70" y="124" width="380" height="40" rx="8" fill="#dbe7ff"/><text x="260" y="142" text-anchor="middle" font-weight="700">3. Klik kedua: kotak jebakan</text><text x="260" y="157" text-anchor="middle" fill="#5f5850">fase 'trap': isOpen → applyTrap → endTurn</text>
+    <rect x="70" y="184" width="380" height="40" rx="8" fill="#f4ede3"/><text x="260" y="202" text-anchor="middle" font-weight="700">4. Game.nextTurn</text><text x="260" y="217" text-anchor="middle" fill="#5f5850">winner(state)? kalau ada → finish(). Kalau tidak → giliran AI</text>
+    <rect x="70" y="244" width="380" height="40" rx="8" fill="#ffe3d3"/><text x="260" y="262" text-anchor="middle" font-weight="700">5. Game.runAi → think() (ai-client.js)</text><text x="260" y="277" text-anchor="middle" fill="#5f5850">kirim posisi ke Web Worker</text>
+    <rect x="70" y="304" width="380" height="40" rx="8" fill="#ffe3d3"/><text x="260" y="322" text-anchor="middle" font-weight="700">6. search() di ai.js (di dalam worker)</text><text x="260" y="337" text-anchor="middle" fill="#5f5850">Minimax + Alpha-Beta, evaluasi = BFS + DFS</text>
+    <rect x="70" y="364" width="380" height="40" rx="8" fill="#ffe3d3"/><text x="260" y="382" text-anchor="middle" font-weight="700">7. Hasil: { move, nodes, cutoffs, timeMs, … }</text><text x="260" y="397" text-anchor="middle" fill="#5f5850">ui.stats() isi panel "Otak AI"; playMove() animasi langkah AI</text>
+    <rect x="70" y="424" width="380" height="40" rx="8" fill="#f4ede3"/><text x="260" y="442" text-anchor="middle" font-weight="700">8. Kembali ke nextTurn</text><text x="260" y="457" text-anchor="middle" fill="#5f5850">giliran pemain lagi, atau game over</text>
+  </g>
+</svg>
+<figcaption>Gambar: alur satu ronde (pemain lalu AI). Biru = input pemain, krem = alur game, oranye = AI.</figcaption>
+</figure>
+{{fn:js/game.js:nextTurn}}
+{{fn:js/game.js:runAi}}
+<p>Perhatikan dua pengaman di <code>runAi</code>: (1) kalau AI terlalu cepat (Easy), tampilan menunggu minimal 450 ms supaya tidak terasa "langsung"; (2) kalau AI gagal atau mengembalikan langkah tidak sah, game memakai langkah acak yang legal, jadi game tidak pernah macet.</p>
+{{fn:js/ai-client.js:think}}
+{{lines:js/ai.worker.js:5:13}}
+<div class="box tip"><p><b>Kenapa Web Worker?</b> JavaScript di browser berjalan di satu thread. Kalau Expert berpikir 1–2 detik di thread utama, animasi dan tombol akan membeku. Worker menjalankan <code>search()</code> di thread terpisah, jadi papan tetap hidup saat AI berpikir.</p></div>
+
+<h2>Konsep AI yang Wajib Dipahami Semua Anggota</h2>
+<p>Dosen bisa bertanya ke siapa saja. Bagian ini adalah dasar yang harus dikuasai semua anggota, walaupun detailnya milik anggota lain.</p>
+
+<h3>Agen dan model P.E.A.S (Tabel 2.1.1)</h3>
+<table class="t">
+  <tr><th>Komponen</th><th>Di Knight Trap</th><th>Di kode</th></tr>
+  <tr><td>Performance</td><td>Win rate AI, waktu berpikir ≤ 4 detik, jumlah posisi diperiksa sedikit, tantangan pas untuk siswa SMA</td><td><code>tests/run.mjs</code>, panel statistik</td></tr>
+  <tr><td>Environment</td><td>Papan 7 × 7, dua agen bergiliran. Deterministik, fully observable, diskret, berurutan, zero-sum</td><td><code>createState()</code></td></tr>
+  <tr><td>Actuators</td><td>Lompat ke kotak legal (maks. 8 arah) + hancurkan satu kotak</td><td><code>applyMove()</code>, <code>{ jump, trap }</code></td></tr>
+  <tr><td>Sensors</td><td>Posisi kedua knight, status 49 kotak, giliran</td><td><code>state.cells</code>, <code>state.pos</code>, <code>state.turn</code></td></tr>
+</table>
+<p><b>Kenapa sifat lingkungan penting?</b> Minimax hanya cocok untuk game <i>deterministik</i> (tidak ada dadu), <i>fully observable</i> (tidak ada kartu tertutup), dan <i>zero-sum</i> (untung saya = rugi lawan). Knight Trap memenuhi ketiganya.</p>
+
+<h3>Adversarial search dan game tree</h3>
+<p><b>Game tree</b>: akar = posisi sekarang, cabang = langkah, simpul = posisi hasil langkah. <b>Kedalaman</b> (depth) = berapa giliran ke depan yang dilihat AI. <b>Branching factor</b> = rata-rata jumlah langkah per posisi. Di Knight Trap: sampai 8 lompatan × sampai 12 kandidat jebakan = sampai <b>96 langkah</b> per posisi. Dengan depth 4: 96<sup>4</sup> ≈ 85 juta posisi. Itulah alasan kita butuh Alpha-Beta dan pembatasan kandidat.</p>
+
+<h3>Minimax dalam satu paragraf</h3>
+<p>AI adalah <b>MAX</b> (ingin skor setinggi mungkin), manusia adalah <b>MIN</b> (dianggap selalu memilih langkah terburuk untuk AI). AI menelusuri pohon sampai kedalaman tertentu, menilai posisi di ujung dengan fungsi evaluasi, lalu menaikkan nilai ke atas: di simpul MAX ambil nilai terbesar, di simpul MIN ambil nilai terkecil. Langkah di akar dengan nilai terbesar dipilih.</p>
+
+<h3>Alpha-Beta dalam satu paragraf</h3>
+<p><b>Alpha</b> = nilai terbaik yang sudah pasti didapat MAX. <b>Beta</b> = nilai terbaik yang sudah pasti didapat MIN. Kalau di suatu simpul <code>beta ≤ alpha</code>, sisa langkah di simpul itu tidak mungkin mengubah keputusan, jadi dilewati (<b>cutoff</b>). Hasilnya <b>sama persis</b> dengan Minimax biasa, tapi posisi yang diperiksa jauh lebih sedikit. Ini dibuktikan di pengujian.</p>
+
+<h3>BFS dan DFS dalam satu paragraf</h3>
+<p><b>BFS</b> (antrian, menyebar per "lapisan") menghitung jumlah lompatan minimum dari knight ke setiap kotak. Kotak yang lebih cepat dicapai knight A adalah <b>wilayah</b> A. <b>DFS</b> (tumpukan, masuk sedalam mungkin dulu) melakukan <b>flood fill</b>: menandai semua kotak yang bisa dicapai knight. Kalau area kedua knight tidak bersentuhan, papan sudah <b>terbelah</b> dan pemenangnya hampir pasti yang areanya lebih luas.</p>
+{{fn:js/ai.js:evaluate}}
+<div class="box key"><p><b>Inti fungsi evaluasi</b> (skor dari sudut pandang P1, lalu dibalik tandanya untuk P2):</p>
+<ul>
+<li>Kalau papan sudah terbelah (DFS): <code>skor = (areaP1 − areaP2) × 100</code>.</li>
+<li>Kalau belum: <code>skor = selisih wilayah (BFS) + 0,5 × selisih mobilitas</code>. Mobilitas = jumlah lompatan legal saat ini.</li>
+</ul>
+<p>Angka 100 (<code>SPLIT_WEIGHT</code>) dipilih karena skor wilayah paling besar sekitar 53, jadi papan yang sudah terbelah selalu dinilai lebih "pasti" daripada posisi yang masih terbuka.</p></div>

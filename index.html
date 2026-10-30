@@ -1,0 +1,546 @@
+<!doctype html>
+<!-- [ID] Awal dokumen HTML; lang="id" = bahasa Indonesia (diganti otomatis oleh setLang di i18n.js). -->
+<html lang="id">
+<!-- [ID] Bagian head: informasi halaman, tidak tampil di layar. -->
+<head>
+  <!-- [ID] Pakai pengodean UTF-8 supaya simbol seperti ♞ dan → tampil benar. -->
+  <meta charset="utf-8">
+  <!-- [ID] Lebar halaman mengikuti layar HP; viewport-fit=cover memakai seluruh layar termasuk area notch. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <!-- [ID] Judul tab browser. -->
+  <title>Knight Trap</title>
+  <!-- [ID] Deskripsi untuk mesin pencari dan pratinjau link. -->
+  <meta name="description" content="Knight Trap: lompat, bakar, jebak. Game strategi 7×7 dengan AI Minimax + Alpha-Beta Pruning.">
+  <!-- [ID] Warna bilah browser di HP. -->
+  <meta name="theme-color" content="#0b0a0d">
+  <!-- [ID] Ikon tab (favicon) berupa SVG knight yang ditanam langsung di dalam atribut, tanpa file terpisah. -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23141217'/%3E%3Cpath fill='%23ff8a3d' d='M20 45C21 40 24 37 27 35C24 35 20 36 17 35C13 34 11 31 12 28L13 26C17 20 24 15 31 12L34 5L38 11C45 15 48 24 47 32C46 38 45 42 44 45Z'/%3E%3Crect x='15' y='47' width='34' height='8' rx='3' fill='%23ff8a3d'/%3E%3C/svg%3E">
+  <!-- [ID] Mulai koneksi lebih awal ke server Google Fonts (mempercepat pemuatan font). -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <!-- [ID] Sama, untuk server file font. -->
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- [ID] Muat font Cinzel (judul) dan Manrope (teks). -->
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;900&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- [ID] Muat file gaya utama. -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<!-- [ID] Isi halaman yang tampil. -->
+<body>
+  <!-- Shared SVG defs: knight gradients and glyph. Kept 0×0 rather than display:none so gradients resolve. -->
+  <!-- [ID] SVG tersembunyi berukuran 0x0 yang menyimpan gradasi warna dan bentuk knight untuk dipakai ulang. -->
+  <svg class="svg-defs" width="0" height="0" aria-hidden="true" focusable="false">
+    <!-- [ID] defs = definisi yang tidak digambar langsung. -->
+    <defs>
+      <!-- [ID] Gradasi biru untuk knight P1 (dari atas ke bawah). -->
+      <linearGradient id="kg-0" x1="0" y1="0" x2="0" y2="1">
+        <!-- [ID] Warna atas: biru sangat terang. -->
+        <stop offset="0" stop-color="#e6f0ff"/>
+        <!-- [ID] Warna tengah: biru muda. -->
+        <stop offset=".45" stop-color="#8fb8ff"/>
+        <!-- [ID] Warna bawah: biru tua. -->
+        <stop offset="1" stop-color="#2f5fcf"/>
+      </linearGradient>
+      <!-- [ID] Gradasi oranye untuk knight P2. -->
+      <linearGradient id="kg-1" x1="0" y1="0" x2="0" y2="1">
+        <!-- [ID] Warna atas: krem. -->
+        <stop offset="0" stop-color="#fff0d6"/>
+        <!-- [ID] Warna tengah: oranye. -->
+        <stop offset=".45" stop-color="#ffaa55"/>
+        <!-- [ID] Warna bawah: oranye tua. -->
+        <stop offset="1" stop-color="#d9440f"/>
+      </linearGradient>
+      <!-- [ID] Gradasi kilau putih (dari kiri ke kanan). -->
+      <linearGradient id="kg-shine" x1="0" y1="0" x2="1" y2="0">
+        <!-- [ID] Transparan. -->
+        <stop offset="0" stop-color="#fff" stop-opacity=".0"/>
+        <!-- [ID] Putih setengah transparan di tengah. -->
+        <stop offset=".5" stop-color="#fff" stop-opacity=".55"/>
+        <!-- [ID] Transparan. -->
+        <stop offset="1" stop-color="#fff" stop-opacity=".0"/>
+      </linearGradient>
+      <!-- [ID] Bentuk knight sebagai simbol yang bisa dipakai ulang dengan <use href="#knight-glyph">. -->
+      <symbol id="knight-glyph" viewBox="0 0 64 64">
+        <!-- [ID] Badan kepala kuda; warna diambil dari variabel CSS (kf = isi, ks = garis) supaya bisa biru atau oranye. -->
+        <path class="k-body" style="fill:var(--kf);stroke:var(--ks);stroke-width:1.2;stroke-linejoin:round" d="M20 45C21 40 24 37 27 35C24 35 20 36 17 35C13 34 11 31 12 28L13 26C17 20 24 15 31 12L34 5L38 11C45 15 48 24 47 32C46 38 45 42 44 45Z"/>
+        <!-- [ID] Garis surai. -->
+        <path class="k-mane" d="M36 12C42 16 45 23 45 31C45 36 44 40 43 44" style="fill:none;stroke:var(--km)" stroke-width="2.2" stroke-linecap="round"/>
+        <!-- [ID] Mata. -->
+        <circle class="k-eye" cx="27" cy="20" r="1.9" style="fill:var(--ke)"/>
+        <!-- [ID] Lubang hidung. -->
+        <path class="k-nostril" d="M15.5 29.5l1.8-.6" style="fill:none;stroke:var(--ke)" stroke-width="1.6" stroke-linecap="round"/>
+        <!-- [ID] Kerah di bawah leher. -->
+        <path class="k-collar" d="M18 46h28l2 4H16z" style="fill:var(--kf);stroke:var(--ks);stroke-width:1.2"/>
+        <!-- [ID] Alas bidak. -->
+        <rect class="k-base" x="12" y="51" width="40" height="7" rx="3" style="fill:var(--kf);stroke:var(--ks);stroke-width:1.2"/>
+      </symbol>
+    </defs>
+  </svg>
+
+  <!-- [ID] Kanvas bara api yang melayang di latar belakang (digambar oleh fx.js). -->
+  <canvas id="bg-embers" aria-hidden="true"></canvas>
+
+  <!-- [ID] Wadah semua layar aplikasi. Hanya satu layar (section.screen) yang tampil pada satu waktu. -->
+  <main id="app">
+    <!-- MAIN MENU -->
+    <!-- [ID] Layar menu utama (data-screen="menu"). -->
+    <section class="screen is-active" id="screen-menu" data-screen="menu">
+      <!-- [ID] Papan hiasan miring di belakang menu (kotaknya diisi main.js). -->
+      <div class="menu-stage" aria-hidden="true"><div class="menu-board" id="menu-board"></div></div>
+      <!-- [ID] Isi menu. -->
+      <div class="menu">
+        <!-- [ID] Lambang lingkaran dengan knight. -->
+        <div class="crest" aria-hidden="true">
+          <!-- [ID] Cincin bercahaya. -->
+          <div class="crest-ring"></div>
+          <!-- [ID] Knight oranye di tengah lambang. -->
+          <svg class="crest-knight" viewBox="0 0 64 64"><use href="#knight-glyph" class="kglyph p1"/></svg>
+        </div>
+        <!-- [ID] Judul besar "Knight Trap". -->
+        <h1 class="title" aria-label="Knight Trap">
+          <!-- [ID] Kata "Knight". -->
+          <span class="title-word">Knight</span>
+          <!-- [ID] Kata "Trap" (warna api). -->
+          <span class="title-word title-trap">Trap</span>
+        </h1>
+        <!-- [ID] Slogan; data-i18n="tagline" artinya teksnya diganti sesuai bahasa. -->
+        <p class="tagline" data-i18n="tagline">Lompat. Bakar. Jebak.</p>
+        <!-- [ID] Tombol-tombol menu. -->
+        <nav class="menu-buttons">
+          <!-- [ID] Tombol Single Player; data-go="sp" membuka layar sp. -->
+          <button class="btn btn-primary btn-lg" data-go="sp">
+            <!-- [ID] Ikon pedang. -->
+            <span class="btn-icon" aria-hidden="true">⚔</span>
+            <!-- [ID] Teks tombol dan keterangan kecil. -->
+            <span><span data-i18n="singlePlayer">Single Player</span><small data-i18n="vsAi">Lawan AI</small></span>
+          </button>
+          <!-- [ID] Tombol Multiplayer (layar mp). -->
+          <button class="btn btn-lg" data-go="mp">
+            <!-- [ID] Ikon bendera. -->
+            <span class="btn-icon" aria-hidden="true">⚑</span>
+            <!-- [ID] Teks tombol. -->
+            <span><span data-i18n="multiplayer">Multiplayer</span><small data-i18n="mpSub">Lokal atau online</small></span>
+          </button>
+          <!-- [ID] Tombol Leaderboard (layar board). -->
+          <button class="btn btn-lg" data-go="board">
+            <!-- [ID] Ikon mahkota. -->
+            <span class="btn-icon" aria-hidden="true">♛</span>
+            <!-- [ID] Teks tombol. -->
+            <span><span data-i18n="leaderboard">Leaderboard</span><small data-i18n="lbMenuSub">Peringkat Human vs AI</small></span>
+          </button>
+          <!-- [ID] Baris dua tombol kecil. -->
+          <div class="menu-row">
+            <!-- [ID] Tombol Cara Bermain. -->
+            <button class="btn btn-ghost" data-go="howto" data-i18n="howToPlay">Cara Bermain</button>
+            <!-- [ID] Tombol Pengaturan. -->
+            <button class="btn btn-ghost" data-go="settings" data-i18n="settings">Pengaturan</button>
+          </div>
+        </nav>
+        <!-- [ID] Catatan algoritma yang dipakai. -->
+        <p class="menu-foot">Minimax · Alpha-Beta Pruning · BFS · DFS</p>
+      </div>
+    </section>
+
+    <!-- SINGLE PLAYER SETUP -->
+    <!-- [ID] Layar persiapan Single Player. -->
+    <section class="screen" id="screen-sp" data-screen="sp">
+      <!-- [ID] Panel halaman. -->
+      <div class="panel-page">
+        <!-- [ID] Kepala halaman. -->
+        <header class="page-head">
+          <!-- [ID] Tombol kembali (data-back). -->
+          <button class="icon-btn" data-back aria-label="Back">←</button>
+          <!-- [ID] Judul. -->
+          <h2 data-i18n="singlePlayer">Single Player</h2>
+        </header>
+        <!-- [ID] Label tingkat kesulitan. -->
+        <h3 class="label" data-i18n="difficulty">Tingkat kesulitan</h3>
+        <!-- [ID] Empat kartu level, berperilaku seperti radio button. -->
+        <div class="diff-grid" role="radiogroup" id="diff-grid">
+          <!-- [ID] Kartu Easy. -->
+          <button class="diff-card" role="radio" data-diff="easy">
+            <!-- [ID] Satu ikon api. -->
+            <span class="diff-flames" aria-hidden="true"><i></i></span>
+            <!-- [ID] Nama level, kedalaman, dan poin per langkah (data-pts diisi main.js). -->
+            <strong data-i18n="easy">Easy</strong><span class="diff-meta" data-i18n="depth1">Kedalaman 1</span><span class="diff-pts" data-pts="easy"></span>
+          </button>
+          <!-- [ID] Kartu Medium. -->
+          <button class="diff-card" role="radio" data-diff="medium">
+            <!-- [ID] Dua ikon api. -->
+            <span class="diff-flames" aria-hidden="true"><i></i><i></i></span>
+            <!-- [ID] Nama level, kedalaman, poin. -->
+            <strong data-i18n="medium">Medium</strong><span class="diff-meta" data-i18n="depth2">Kedalaman 2</span><span class="diff-pts" data-pts="medium"></span>
+          </button>
+          <!-- [ID] Kartu Hard. -->
+          <button class="diff-card" role="radio" data-diff="hard">
+            <!-- [ID] Tiga ikon api. -->
+            <span class="diff-flames" aria-hidden="true"><i></i><i></i><i></i></span>
+            <!-- [ID] Nama level, kedalaman, poin. -->
+            <strong data-i18n="hard">Hard</strong><span class="diff-meta" data-i18n="depth3">Kedalaman 3</span><span class="diff-pts" data-pts="hard"></span>
+          </button>
+          <!-- [ID] Kartu Expert. -->
+          <button class="diff-card" role="radio" data-diff="expert">
+            <!-- [ID] Empat ikon api. -->
+            <span class="diff-flames" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+            <!-- [ID] Nama level, kedalaman, poin. -->
+            <strong data-i18n="expert">Expert</strong><span class="diff-meta" data-i18n="depth4">Kedalaman 4</span><span class="diff-pts" data-pts="expert"></span>
+          </button>
+        </div>
+        <!-- [ID] Judul "Cara dapat poin". -->
+        <h3 class="label" data-i18n="pointsHow">Cara dapat poin</h3>
+        <!-- [ID] Kotak tabel poin. -->
+        <div class="pts-box">
+          <!-- [ID] Tabel poin per level (diisi pointsTable di main.js). -->
+          <div id="sp-points"></div>
+          <!-- [ID] Penjelasan singkat sistem poin. -->
+          <p class="pts-note" data-i18n="pointsNote">Setiap langkahmu dapat poin, dan menang dapat bonus.</p>
+        </div>
+        <!-- [ID] Label siapa jalan duluan. -->
+        <h3 class="label" data-i18n="whoFirst">Siapa jalan duluan?</h3>
+        <!-- [ID] Tiga pilihan. -->
+        <div class="seg" role="radiogroup" id="first-seg">
+          <!-- [ID] Pemain duluan. -->
+          <button role="radio" data-first="human" data-i18n="you">Kamu</button>
+          <!-- [ID] AI duluan. -->
+          <button role="radio" data-first="ai">AI</button>
+          <!-- [ID] Acak. -->
+          <button role="radio" data-first="random" data-i18n="random">Acak</button>
+        </div>
+        <!-- [ID] Baris saklar Alpha-Beta. -->
+        <label class="switch-row">
+          <!-- [ID] Judul dan penjelasan saklar. -->
+          <span><strong>Alpha-Beta Pruning</strong><small data-i18n="abHint">Matikan untuk melihat Minimax biasa memeriksa lebih banyak posisi.</small></span>
+          <!-- [ID] Saklar (checkbox bergaya switch). -->
+          <input type="checkbox" class="switch" id="sp-ab" checked>
+        </label>
+        <!-- [ID] Baris nama tim. -->
+        <div class="switch-row">
+          <!-- [ID] Label dan nama tim saat ini. -->
+          <span><strong data-i18n="teamName">Nama tim</strong><small id="sp-team-name">—</small></span>
+          <!-- [ID] Tombol Ganti nama. -->
+          <button class="btn btn-ghost team-change" id="sp-team-change" data-i18n="change">Ganti</button>
+        </div>
+        <!-- [ID] Tombol Mulai. -->
+        <button class="btn btn-primary btn-lg btn-block" id="sp-start" data-i18n="startGame">Mulai</button>
+      </div>
+    </section>
+
+    <!-- MULTIPLAYER -->
+    <!-- [ID] Layar Multiplayer. -->
+    <section class="screen" id="screen-mp" data-screen="mp">
+      <!-- [ID] Panel halaman. -->
+      <div class="panel-page">
+        <!-- [ID] Kepala halaman. -->
+        <header class="page-head">
+          <!-- [ID] Tombol kembali. -->
+          <button class="icon-btn" data-back aria-label="Back">←</button>
+          <!-- [ID] Judul. -->
+          <h2 data-i18n="multiplayer">Multiplayer</h2>
+        </header>
+        <!-- [ID] Kartu mode Lokal (seluruh kartu adalah tombol). -->
+        <button class="mode-card" id="mp-local">
+          <!-- [ID] Gambar dua knight. -->
+          <span class="mode-art" aria-hidden="true">
+            <!-- [ID] Knight biru. -->
+            <svg viewBox="0 0 64 64"><use href="#knight-glyph" class="kglyph p0"/></svg>
+            <!-- [ID] Knight oranye, dicerminkan. -->
+            <svg viewBox="0 0 64 64" class="flip"><use href="#knight-glyph" class="kglyph p1"/></svg>
+          </span>
+          <!-- [ID] Judul dan penjelasan mode Lokal. -->
+          <span class="mode-text"><strong data-i18n="local">Lokal</strong><small data-i18n="localSub">Dua pemain di satu perangkat, bergantian.</small></span>
+          <!-- [ID] Panah ke kanan. -->
+          <span class="chev" aria-hidden="true">›</span>
+        </button>
+        <!-- [ID] Kartu mode Online. -->
+        <div class="mode-card mode-online">
+          <!-- [ID] Ikon bola dunia. -->
+          <span class="mode-art" aria-hidden="true"><span class="globe">◎</span></span>
+          <!-- [ID] Judul dan penjelasan mode Online. -->
+          <span class="mode-text"><strong>Online</strong><small data-i18n="onlineSub">Main lewat internet dengan kode ruang.</small></span>
+          <!-- [ID] Tombol-tombol online. -->
+          <div class="online-actions">
+            <!-- [ID] Tombol Buat ruang. -->
+            <button class="btn btn-primary" id="mp-host" data-i18n="createRoom">Buat ruang</button>
+            <!-- [ID] Form gabung dengan kode. -->
+            <form class="join-form" id="join-form" autocomplete="off">
+              <!-- [ID] Kolom kode ruang (maks. 6 karakter, otomatis huruf besar). -->
+              <input id="join-code" class="code-input" maxlength="6" placeholder="KODE" aria-label="Room code" spellcheck="false" autocapitalize="characters">
+              <!-- [ID] Tombol Gabung. -->
+              <button class="btn" type="submit" data-i18n="join">Gabung</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ONLINE LOBBY -->
+    <!-- [ID] Layar lobi online. -->
+    <section class="screen" id="screen-lobby" data-screen="lobby">
+      <!-- [ID] Panel halaman. -->
+      <div class="panel-page lobby">
+        <!-- [ID] Kepala halaman. -->
+        <header class="page-head">
+          <!-- [ID] Tombol kembali (membatalkan sesi). -->
+          <button class="icon-btn" id="lobby-cancel" aria-label="Back">←</button>
+          <!-- [ID] Judul. -->
+          <h2>Online</h2>
+        </header>
+        <!-- [ID] Kartu lobi. -->
+        <div class="lobby-card">
+          <!-- [ID] Label kode ruang. -->
+          <p class="label" id="lobby-label" data-i18n="roomCode">Kode ruang</p>
+          <!-- [ID] Kode ruang besar. -->
+          <div class="room-code" id="room-code">·····</div>
+          <!-- [ID] Tombol salin kode. -->
+          <button class="btn btn-ghost" id="copy-code" data-i18n="copy">Salin kode</button>
+          <!-- [ID] Status koneksi: titik warna dan teks. -->
+          <div class="conn-status"><span class="dot" id="lobby-dot"></span><span id="lobby-status">…</span></div>
+          <!-- [ID] Petunjuk. -->
+          <p class="lobby-hint" id="lobby-hint" data-i18n="lobbyHint">Bagikan kode ini ke temanmu. Game mulai otomatis saat dia bergabung.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- LEADERBOARD -->
+    <!-- [ID] Layar Leaderboard. -->
+    <section class="screen" id="screen-board" data-screen="board">
+      <!-- [ID] Panel halaman. -->
+      <div class="panel-page">
+        <!-- [ID] Kepala halaman. -->
+        <header class="page-head">
+          <!-- [ID] Tombol kembali. -->
+          <button class="icon-btn" data-back aria-label="Back">←</button>
+          <!-- [ID] Judul. -->
+          <h2 data-i18n="leaderboard">Leaderboard</h2>
+          <!-- [ID] Tombol refresh (ikon berputar saat memuat). -->
+          <button class="icon-btn lb-refresh" id="lb-refresh" aria-label="Refresh">↻</button>
+        </header>
+        <!-- [ID] Subjudul acara. -->
+        <p class="lb-sub">NPLC Universitas Ciputra · Human vs AI</p>
+        <!-- [ID] Status: titik warna dan waktu pembaruan atau "offline". -->
+        <div class="conn-status lb-status"><span class="dot" id="lb-dot"></span><span id="lb-status">…</span></div>
+        <!-- [ID] Tabel leaderboard. -->
+        <div class="lb">
+          <!-- [ID] Baris judul kolom. -->
+          <div class="lb-row lb-head" aria-hidden="true">
+            <!-- [ID] Kolom: #, Tim, Poin, Menang, Main. -->
+            <span>#</span><span data-i18n="lbTeam">Tim</span><span data-i18n="lbPoints">Poin</span><span data-i18n="lbWins">Menang</span><span data-i18n="lbGames">Main</span>
+          </div>
+          <!-- [ID] Daftar tim (diisi renderLeaderboard di main.js). -->
+          <ol class="lb-list" id="lb-list"></ol>
+        </div>
+        <!-- [ID] Info skor yang masih tersimpan di perangkat. -->
+        <p class="lb-pending" id="lb-pending" hidden></p>
+      </div>
+    </section>
+
+    <!-- HOW TO PLAY -->
+    <!-- [ID] Layar Cara Bermain. -->
+    <section class="screen" id="screen-howto" data-screen="howto">
+      <!-- [ID] Panel halaman lebar. -->
+      <div class="panel-page wide">
+        <!-- [ID] Kepala halaman. -->
+        <header class="page-head">
+          <!-- [ID] Tombol kembali. -->
+          <button class="icon-btn" data-back aria-label="Back">←</button>
+          <!-- [ID] Judul. -->
+          <h2 data-i18n="howToPlay">Cara Bermain</h2>
+        </header>
+        <!-- [ID] Tiga kartu langkah (diisi buildHowTo di main.js). -->
+        <div class="steps" id="howto-steps"></div>
+        <!-- [ID] Kotak aturan kalah. -->
+        <div class="lose-rule">
+          <!-- [ID] Ikon rantai. -->
+          <span class="lose-icon" aria-hidden="true">⛓</span>
+          <!-- [ID] Teks aturan kalah (berisi HTML, lewat data-i18n-html). -->
+          <p data-i18n-html="loseRule"></p>
+        </div>
+        <!-- [ID] Tombol Main sekarang (ke layar Single Player). -->
+        <button class="btn btn-primary btn-lg btn-block" data-go="sp" data-i18n="playNow">Main sekarang</button>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <!-- [ID] Layar Pengaturan. -->
+    <section class="screen" id="screen-settings" data-screen="settings">
+      <!-- [ID] Panel halaman. -->
+      <div class="panel-page">
+        <!-- [ID] Kepala halaman. -->
+        <header class="page-head">
+          <!-- [ID] Tombol kembali. -->
+          <button class="icon-btn" data-back aria-label="Back">←</button>
+          <!-- [ID] Judul. -->
+          <h2 data-i18n="settings">Pengaturan</h2>
+        </header>
+        <!-- [ID] Baris saklar suara. -->
+        <label class="switch-row">
+          <!-- [ID] Judul dan penjelasan. -->
+          <span><strong data-i18n="sound">Suara</strong><small data-i18n="soundSub">Efek lompat, bakar, dan jebakan.</small></span>
+          <!-- [ID] Saklar suara. -->
+          <input type="checkbox" class="switch" id="set-sound" checked>
+        </label>
+        <!-- [ID] Baris pilihan bahasa. -->
+        <div class="switch-row">
+          <!-- [ID] Label. -->
+          <span><strong data-i18n="language">Bahasa</strong></span>
+          <!-- [ID] Dua pilihan bahasa. -->
+          <div class="seg seg-sm" id="lang-seg" role="radiogroup">
+            <!-- [ID] Indonesia. -->
+            <button role="radio" data-lang="id">Indonesia</button>
+            <!-- [ID] English. -->
+            <button role="radio" data-lang="en">English</button>
+          </div>
+        </div>
+        <!-- [ID] Kredit tim. -->
+        <p class="credits">Knight Trap · Louis Yuriel Saputra, Clarrence Adriano Hemeldan, Shatrya Christiano Chandra · Universitas Ciputra 2026/2027</p>
+      </div>
+    </section>
+
+    <!-- GAME -->
+    <!-- [ID] Layar permainan. -->
+    <section class="screen" id="screen-game" data-screen="game">
+      <!-- [ID] Bilah atas. -->
+      <header class="game-top">
+        <!-- [ID] Tombol kembali ke menu. -->
+        <button class="icon-btn" id="game-exit" aria-label="Menu">←</button>
+        <!-- [ID] Nama mode, misalnya "Single Player · Hard". -->
+        <div class="game-mode" id="game-mode">—</div>
+        <!-- [ID] Bagian kanan bilah atas. -->
+        <div class="game-top-right">
+          <!-- [ID] Kotak skor (hanya mode Single Player). -->
+          <span class="score-pill" id="score-pill" hidden><small data-i18n="points">Poin</small><b id="score-val">0</b></span>
+          <!-- [ID] Status koneksi (hanya mode online). -->
+          <span class="net-pill" id="net-pill" hidden><span class="dot"></span><span class="net-text"></span></span>
+          <!-- [ID] Tombol suara. -->
+          <button class="icon-btn" id="game-sound" aria-label="Sound">♪</button>
+        </div>
+      </header>
+
+      <!-- [ID] Tata letak game: kartu pemain, papan, panel samping. -->
+      <div class="game-layout">
+        <!-- [ID] Kartu pemain. -->
+        <aside class="players" id="players">
+          <!-- [ID] Kartu P1 (biru). -->
+          <div class="pcard" data-side="0">
+            <!-- [ID] Ikon knight biru. -->
+            <svg class="pcard-knight" viewBox="0 0 64 64" aria-hidden="true"><use href="#knight-glyph" class="kglyph p0"/></svg>
+            <!-- [ID] Nama dan warna. -->
+            <div class="pcard-info"><strong class="pcard-name">P1</strong><span class="pcard-sub"></span></div>
+            <!-- [ID] Jumlah lompatan legal (mobilitas). -->
+            <div class="pcard-mob" title="Lompatan tersedia"><b>0</b><small data-i18n="jumps">lompatan</small></div>
+          </div>
+          <!-- [ID] Tulisan VS. -->
+          <div class="vs" aria-hidden="true">VS</div>
+          <!-- [ID] Kartu P2 (oranye). -->
+          <div class="pcard" data-side="1">
+            <!-- [ID] Ikon knight oranye. -->
+            <svg class="pcard-knight" viewBox="0 0 64 64" aria-hidden="true"><use href="#knight-glyph" class="kglyph p1"/></svg>
+            <!-- [ID] Nama dan warna. -->
+            <div class="pcard-info"><strong class="pcard-name">P2</strong><span class="pcard-sub"></span></div>
+            <!-- [ID] Jumlah lompatan legal. -->
+            <div class="pcard-mob"><b>0</b><small data-i18n="jumps">lompatan</small></div>
+          </div>
+        </aside>
+
+        <!-- [ID] Kolom papan. -->
+        <div class="board-col">
+          <!-- [ID] Status giliran; aria-live supaya pembaca layar mengumumkan perubahan. -->
+          <div class="status" id="status" aria-live="polite">
+            <!-- [ID] Titik warna dan teks status. -->
+            <span class="status-dot"></span><span class="status-text" id="status-text"></span>
+            <!-- [ID] Tombol Batal lompat (muncul saat fase jebakan). -->
+            <button class="status-undo" id="undo-jump" hidden data-i18n="undoJump">Batal lompat</button>
+          </div>
+          <!-- [ID] Bingkai papan. -->
+          <div class="board-shell" id="board-shell">
+            <!-- [ID] Papan 7x7 (kotak, knight, dan kanvas efek dibuat oleh BoardView di board.js). -->
+            <div class="board" id="board"></div>
+          </div>
+        </div>
+
+        <!-- [ID] Panel samping. -->
+        <aside class="side" id="side">
+          <!-- [ID] Panel "Otak AI" (hanya mode Single Player). -->
+          <section class="ai-panel" id="ai-panel">
+            <!-- [ID] Kepala panel. -->
+            <header class="ai-head">
+              <!-- [ID] Judul. -->
+              <h3 data-i18n="aiBrain">Otak AI</h3>
+              <!-- [ID] Animasi tiga titik "berpikir". -->
+              <span class="thinking" id="thinking"><i></i><i></i><i></i><span data-i18n="thinking">berpikir</span></span>
+            </header>
+            <!-- [ID] Kotak statistik. -->
+            <div class="stats">
+              <!-- [ID] Kedalaman. -->
+              <div class="stat"><small data-i18n="statDepth">Kedalaman</small><b id="st-depth">–</b></div>
+              <!-- [ID] Posisi diperiksa. -->
+              <div class="stat"><small data-i18n="statNodes">Posisi diperiksa</small><b id="st-nodes">–</b></div>
+              <!-- [ID] Cabang dipangkas. -->
+              <div class="stat"><small data-i18n="statCutoffs">Cabang dipangkas</small><b id="st-cutoffs">–</b></div>
+              <!-- [ID] Waktu. -->
+              <div class="stat"><small data-i18n="statTime">Waktu</small><b id="st-time">–</b></div>
+              <!-- [ID] Skor langkah (lebar penuh). -->
+              <div class="stat stat-wide"><small data-i18n="statScore">Skor langkah</small><b id="st-score">–</b></div>
+            </div>
+            <!-- [ID] Saklar Alpha-Beta di dalam game. -->
+            <label class="switch-row compact">
+              <!-- [ID] Label dan status ON/OFF. -->
+              <span><strong>Alpha-Beta</strong><small id="ab-state">ON</small></span>
+              <!-- [ID] Saklar. -->
+              <input type="checkbox" class="switch" id="game-ab" checked>
+            </label>
+          </section>
+          <!-- [ID] Panel riwayat langkah. -->
+          <section class="log-panel">
+            <!-- [ID] Judul. -->
+            <h3 data-i18n="moveLog">Riwayat langkah</h3>
+            <!-- [ID] Daftar langkah (diisi ui.log di main.js). -->
+            <ol class="log" id="log"></ol>
+          </section>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <!-- GAME OVER -->
+  <!-- [ID] Layar game over (lapisan modal, tersembunyi sampai game selesai). -->
+  <div class="modal" id="gameover" hidden>
+    <!-- [ID] Kartu dialog. -->
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="go-title">
+      <!-- [ID] Knight di atas kartu (warna pemenang). -->
+      <div class="go-crest"><svg viewBox="0 0 64 64"><use href="#knight-glyph" class="kglyph" id="go-glyph"/></svg></div>
+      <!-- [ID] Judul: Kamu Menang / Kamu Kalah. -->
+      <h2 id="go-title">—</h2>
+      <!-- [ID] Keterangan. -->
+      <p id="go-sub"></p>
+      <!-- [ID] Jumlah langkah. -->
+      <div class="go-stats"><span><b id="go-moves">0</b> <span data-i18n="movesPlayed">langkah</span></span></div>
+      <!-- [ID] Bagian poin (hanya Single Player). -->
+      <section class="go-score" id="go-score" hidden>
+        <!-- [ID] Judul dan level x pengali. -->
+        <header class="go-score-head"><span data-i18n="points">Poin</span><span id="go-mult"></span></header>
+        <!-- [ID] Rincian poin. -->
+        <ul class="go-breakdown" id="go-breakdown"></ul>
+        <!-- [ID] Tombol Kirim skor. -->
+        <button class="btn btn-block" id="go-submit" data-i18n="submitScore">Kirim skor</button>
+        <!-- [ID] Status pengiriman. -->
+        <p class="go-submit-status" id="go-submit-status" aria-live="polite"></p>
+      </section>
+      <!-- [ID] Tombol aksi. -->
+      <div class="go-actions">
+        <!-- [ID] Main lagi. -->
+        <button class="btn btn-primary btn-lg" id="go-rematch" data-i18n="rematch">Main lagi</button>
+        <!-- [ID] Menu utama. -->
+        <button class="btn btn-ghost" id="go-menu" data-i18n="mainMenu">Menu utama</button>
+      </div>
+      <!-- [ID] Pesan tunggu (mode online). -->
+      <p class="go-wait" id="go-wait" hidden></p>
+    </div>
+  </div>
+
+  <!-- [ID] Notifikasi singkat (toast) di bawah layar. -->
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <!-- [ID] Muat main.js sebagai ES module; main.js memuat file lain lewat import. -->
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
