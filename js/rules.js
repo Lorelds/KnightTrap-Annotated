@@ -82,26 +82,29 @@ export function deserialize(o) {
   return { cells: Int8Array.from(o.cells), pos: [o.pos[0] | 0, o.pos[1] | 0], turn: o.turn & 1, moves: o.moves | 0 };
 }
 
-// [ID] Apakah kotak sq terbuka? Terbuka = kosong DAN tidak ditempati knight mana pun.
+// Open means a trap can go here: not burned, not a trap, and no knight on it.
+// [ID] Apakah kotak sq terbuka (boleh dijebak)? Terbuka = kosong DAN tidak ditempati knight mana pun.
 export function isOpen(s, sq) {
-  // [ID] Aturan (d): tidak boleh mendarat di kotak terbakar, jebakan, atau kotak knight.
+  // [ID] Kotak untuk jebakan harus kosong (bukan terbakar/jebakan) dan tidak ditempati knight. Untuk lompatan, lihat legalJumps di bawah.
   return s.cells[sq] === EMPTY && sq !== s.pos[0] && sq !== s.pos[1];
 }
 
+// A jump can land on any square that is not burned or a trap.
+// The enemy knight's square counts: landing there eats it.
 // [ID] Daftar lompatan legal untuk pemain "side" (default: yang sedang jalan).
 export function legalJumps(s, side = s.turn) {
   // [ID] Tempat menampung hasil.
   const out = [];
-  // [ID] Untuk setiap tetangga L dari posisi knight, simpan yang terbuka.
-  for (const n of NEIGHBORS[s.pos[side]]) if (isOpen(s, n)) out.push(n);
+  // [ID] Untuk setiap tetangga L, simpan yang belum terbakar/dijebak. Kotak knight musuh ikut dihitung (mendarat di sana = makan).
+  for (const n of NEIGHBORS[s.pos[side]]) if (s.cells[n] === EMPTY) out.push(n);
   // [ID] Kembalikan daftar indeks kotak tujuan.
   return out;
 }
 
 // [ID] Apakah pemain "side" punya minimal satu lompatan legal? (lebih cepat dari legalJumps karena berhenti di yang pertama)
 export function canMove(s, side = s.turn) {
-  // [ID] Begitu ketemu satu tetangga terbuka, langsung jawab "ya".
-  for (const n of NEIGHBORS[s.pos[side]]) if (isOpen(s, n)) return true;
+  // [ID] Begitu ketemu satu tetangga yang belum terbakar/dijebak, langsung jawab "ya".
+  for (const n of NEIGHBORS[s.pos[side]]) if (s.cells[n] === EMPTY) return true;
   // [ID] Tidak ada satu pun: tidak bisa bergerak.
   return false;
 }
@@ -125,7 +128,7 @@ export function applyJump(s, to) {
   s.cells[from] = BURNED;
   // [ID] Pindahkan knight ke kotak tujuan.
   s.pos[side] = to;
-  // [ID] Kembalikan kotak asal (dipakai untuk animasi dan untuk membatalkan lompatan).
+  // [ID] Kembalikan kotak asal (dipakai untuk riwayat langkah dan untuk membatalkan lompatan).
   return from;
 }
 
@@ -153,6 +156,8 @@ export function validateMove(s, move) {
   if (winner(s) !== null) return false;
   // [ID] Tolak kalau lompatan bukan lompatan legal.
   if (!legalJumps(s).includes(move.jump)) return false;
+  // [ID] Aturan makan: kalau lompatan mendarat di kotak knight musuh, game langsung selesai, jadi jebakan harus -1 (tidak ada).
+  if (move.jump === s.pos[s.turn ^ 1]) return move.trap === -1; // eating ends the game, so no trap
   // [ID] Buat salinan supaya state asli tidak berubah.
   const t = cloneState(s);
   // [ID] Terapkan lompatan di salinan (kotak asal ikut terbakar).
@@ -175,9 +180,12 @@ export function applyMove(s, move) {
   return from;
 }
 
-// The side to move loses if it has no legal jump. Returns the winning side, or null.
-// [ID] Aturan (e): yang sedang jalan kalah kalau tidak punya lompatan legal. Mengembalikan pemenang (0/1) atau null kalau belum selesai.
+// The side to move loses if it was just eaten (both knights on one square) or has no legal jump.
+// Returns the winning side, or null.
+// [ID] Aturan (e) + makan: yang sedang jalan kalah kalau baru dimakan atau tidak punya lompatan legal. Mengembalikan pemenang (0/1) atau null kalau belum selesai.
 export function winner(s) {
+  // [ID] Kedua knight di kotak yang sama = yang sedang jalan baru saja dimakan, jadi pemain lain menang.
+  if (s.pos[0] === s.pos[1]) return s.turn ^ 1;
   // [ID] Kalau masih bisa bergerak: null (belum ada pemenang). Kalau tidak: pemenangnya pemain lain (turn ^ 1).
   return canMove(s, s.turn) ? null : s.turn ^ 1;
 }

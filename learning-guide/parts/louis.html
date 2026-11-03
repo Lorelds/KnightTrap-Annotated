@@ -5,7 +5,7 @@
   <li>Menjelaskan Minimax dan Alpha-Beta Pruning dengan contoh pohon kecil, termasuk kapan cutoff terjadi.</li>
   <li>Menunjuk baris kode <code>search()</code> di <code>js/ai.js</code> untuk setiap baris pseudocode Gambar 2.1.1.</li>
   <li>Menjelaskan tiga pembatasan: kandidat jebakan maks. 12, pengurutan langkah, dan batas waktu 4 detik.</li>
-  <li>Menjelaskan tingkat kesulitan, tombol Alpha-Beta ON/OFF, dan isi panel statistik "Otak AI".</li>
+  <li>Menjelaskan tingkat kesulitan, tombol Alpha-Beta ON/OFF, dan isi panel "Statistik AI".</li>
   <li>Membaca dan membela hasil uji kebenaran Alpha-Beta (30 posisi, depth 1–3).</li>
 </ul>
 </div>
@@ -38,7 +38,8 @@
 <table class="t">
   <tr><th>Pseudocode</th><th><code>ab()</code> di <code>js/ai.js</code></th></tr>
   <tr><td><code>if player has no legal jump then return terminal score</code></td><td><code>if (!hasJump(s, side)) return side === aiSide ? -(WIN - ply) : WIN - ply;</code></td></tr>
-  <tr><td><code>if depth = 0 then return EVALUATE(state)</code></td><td><code>if (d === 0) return evaluate(s, aiSide);</code></td></tr>
+  <tr><td>(tambahan, tidak ada di pseudocode) pemain baru dimakan</td><td><code>if (s.pos[0] === s.pos[1]) return side === aiSide ? -(WIN - ply) : WIN - ply;</code></td></tr>
+  <tr><td><code>if depth = 0 then return EVALUATE(state)</code></td><td><code>if (d === 0) return evaluate(s, aiSide, ply);</code> (<code>ply</code> ikut dikirim supaya skor menang/kalah di ujung sama dengan skor dari pencarian)</td></tr>
   <tr><td><code>moves ← GENERATE(state, player)</code></td><td><code>const moves = generateMoves(s, side);</code></td></tr>
   <tr><td><code>moves ← ORDER(moves)</code></td><td><code>if (d &gt;= CFG.orderMinDepth) orderMoves(...)</code></td></tr>
   <tr><td><code>if player = AI then … best ← max(best, v); alpha ← max(alpha, best)</code></td><td>blok <code>if (isMax) { … }</code></td></tr>
@@ -87,18 +88,18 @@
 <div class="box key"><p><b>Kalimat kunci untuk presentasi:</b> "Alpha-Beta tidak menebak. Cabang yang dibuang adalah cabang yang <i>terbukti</i> tidak bisa mengubah keputusan, jadi hasilnya selalu sama dengan Minimax biasa. Kami membuktikannya di 30 posisi pada depth 1 sampai 3."</p></div>
 
 <h3>Kode bagian MAX dan MIN</h3>
-{{lines:js/ai.js:217:254}}
+{{lines:js/ai.js:231:269}}
 <p>Perhatikan <code>if (prune &amp;&amp; …)</code>: kalau tombol Alpha-Beta OFF, <code>prune</code> bernilai <code>false</code> dan loop tidak pernah berhenti lebih awal, jadi kode yang sama berubah menjadi Minimax biasa. Itulah kenapa perbandingannya adil: <b>satu-satunya</b> perbedaan adalah pemangkasan.</p>
 <p>Di akar, alpha juga diperbarui (<code>if (prune &amp;&amp; best &gt; alpha) alpha = best;</code>) lalu diteruskan ke setiap anak, sedangkan beta di akar selalu <code>Infinity</code> karena tidak ada simpul MIN di atas akar.</p>
 
 <h2>Langkah, make/unmake, dan Kandidat Jebakan</h2>
 <h3>Satu langkah dikemas dalam satu angka</h3>
-{{lines:js/ai.js:142:144}}
-<p>Kotak lompatan 0–48 muat dalam 6 bit (maks. 63). Kotak jebakan + 1 disimpan di bit di atasnya, sehingga jebakan −1 ("tidak ada kotak tersisa") menjadi 0. Contoh: lompat ke 30, jebak 12 → <code>30 | (13 &lt;&lt; 6) = 30 + 832 = 862</code>. Satu angka lebih hemat memori daripada objek <code>{ jump, trap }</code>, dan AI membuat ribuan langkah per detik.</p>
+{{lines:js/ai.js:149:151}}
+<p>Kotak lompatan 0–48 muat dalam 6 bit (maks. 63). Kotak jebakan + 1 disimpan di bit di atasnya, sehingga jebakan −1 (langkah makan, atau tidak ada kotak tersisa) menjadi 0. Contoh: lompat ke 30, jebak 12 → <code>30 | (13 &lt;&lt; 6) = 30 + 832 = 862</code>. Satu angka lebih hemat memori daripada objek <code>{ jump, trap }</code>, dan AI membuat ribuan langkah per detik.</p>
 {{fn:js/ai.js:generateMoves}}
-<p>Untuk setiap lompatan legal, knight dipindahkan sementara (kotak asal dibakar) supaya kandidat jebakan dihitung dari posisi <i>setelah</i> lompatan, lalu semuanya dikembalikan. Ini persis aturan: jebak dilakukan setelah lompat.</p>
+<p>Untuk setiap lompatan legal, knight dipindahkan sementara (kotak asal dibakar) supaya kandidat jebakan dihitung dari posisi <i>setelah</i> lompatan, lalu semuanya dikembalikan. Ini persis aturan: jebak dilakukan setelah lompat. Kalau tetangga itu adalah kotak knight musuh, yang dibuat hanya satu langkah makan, <code>pack(j, -1)</code>, karena game langsung selesai.</p>
 <h3>make / unmake: coba lalu batalkan tanpa menyalin papan</h3>
-{{lines:js/ai.js:164:181}}
+{{lines:js/ai.js:175:192}}
 <p>Proposal: "langkah dicoba dan dibatalkan langsung pada papan yang sama tanpa menyalin papan, supaya cepat". <code>make</code> mengembalikan <code>from</code> (kotak asal) karena itu satu-satunya informasi yang hilang dan dibutuhkan <code>unmake</code>. Urutan di <code>unmake</code> adalah kebalikan <code>make</code>.</p>
 
 <h2>Tiga Pembatasan Agar Cepat</h2>
@@ -107,13 +108,13 @@
 <p>Tanpa batas, satu lompatan bisa diikuti ±45 pilihan jebakan. Jebakan yang paling berguna biasanya di dekat lawan, jadi urutannya: (1) kotak tujuan lompatan lawan (ring 1), (2) kotak dua lompatan dari lawan (ring 2), berhenti di 12. <code>stamp</code>/<code>stampId</code> adalah trik untuk menandai "sudah dimasukkan" tanpa mengosongkan array setiap kali: cukup naikkan <code>stampId</code>. Kalau lawan sudah terkurung (tidak ada kotak di ring 1/2), kotak terbuka apa pun dipakai.</p>
 <h3>2. Pengurutan langkah (move ordering)</h3>
 {{fn:js/ai.js:orderMoves}}
-<p>Alpha-Beta memangkas paling banyak kalau langkah terbaik diperiksa <b>lebih dulu</b>. Setiap langkah dinilai sekali dengan <code>evaluate()</code> (evaluasi statis), lalu diurutkan: MAX dari besar ke kecil, MIN dari kecil ke besar. Pengurutan sendiri butuh waktu, jadi hanya dilakukan kalau sisa kedalaman ≥ 2 (<code>orderMinDepth</code>), sesuai proposal.</p>
+<p>Alpha-Beta memangkas paling banyak kalau langkah terbaik diperiksa <b>lebih dulu</b>. Langkah makan langsung diberi nilai paling ekstrem (<code>±Infinity</code>) supaya selalu diperiksa pertama, karena langkah itu mengakhiri game. Langkah lain dinilai sekali dengan <code>evaluate()</code> (evaluasi statis), lalu diurutkan: MAX dari besar ke kecil, MIN dari kecil ke besar. Pengurutan sendiri butuh waktu, jadi hanya dilakukan kalau sisa kedalaman ≥ 2 (<code>orderMinDepth</code>), sesuai proposal.</p>
 <h3>3. Batas waktu 4 detik</h3>
-{{lines:js/ai.js:217:219}}
-<p>Setiap 256 node (<code>(nodes &amp; 255) === 0</code>, lebih murah daripada mengecek jam di setiap node), waktu dicek. Kalau melewati batas, dilempar <code>ABORT</code>. Di akar, <code>try/catch</code> menangkapnya dan AI memakai <code>bestMove</code> dari langkah akar yang sudah selesai dihitung (<code>completed</code>). <code>timedOut: true</code> lalu muncul sebagai label "batas 4 dtk" di panel. Pada hasil uji, Expert maksimum 626 ms, jadi batas ini adalah pengaman, bukan sesuatu yang sering terjadi.</p>
+{{lines:js/ai.js:231:233}}
+<p>Setiap 256 node (<code>(nodes &amp; 255) === 0</code>, lebih murah daripada mengecek jam di setiap node), waktu dicek. Kalau melewati batas, dilempar <code>ABORT</code>. Di akar, <code>try/catch</code> menangkapnya dan AI memakai <code>bestMove</code> dari langkah akar yang sudah selesai dihitung (<code>completed</code>). <code>timedOut: true</code> lalu muncul sebagai label "batas 4 dtk" di panel. Pada hasil uji, Expert maksimum 696 ms, jadi batas ini adalah pengaman, bukan sesuatu yang sering terjadi.</p>
 
 <h2>Tingkat Kesulitan, Tombol Alpha-Beta, Panel Statistik</h2>
-{{lines:js/config.js:10:24}}
+{{lines:js/config.js:10:29}}
 <p>Level hanya mengubah <b>kedalaman</b>. Easy = 1 (AI hanya melihat langkahnya sendiri), Expert = 4 (AI, manusia, AI, manusia).</p>
 {{fn:js/main.js:startAiGame}}
 {{fn:js/main.js:stats}}
@@ -128,7 +129,7 @@
 <div class="box tip"><p><b>Demo yang meyakinkan:</b> main di Hard, catat "Posisi diperiksa". Matikan tombol Alpha-Beta di panel, main satu langkah lagi: angka posisi diperiksa melonjak dan waktunya naik, tetapi gaya bermain AI tidak berubah.</p></div>
 
 <h2>Pengujian Kebenaran Alpha-Beta</h2>
-{{lines:tests/run.mjs:111:146}}
+{{lines:tests/run.mjs:175:210}}
 <ul>
   <li><b>Posisi uji bisa diulang:</b> <code>mulberry32(seed)</code> adalah generator angka acak dengan seed, jadi seed yang sama selalu menghasilkan 30 posisi yang sama.</li>
   <li><b>Adil:</b> keduanya memakai <code>search()</code> yang sama dengan <code>timeLimitMs: Infinity</code>; hanya <code>prune</code> yang berbeda.</li>
@@ -136,7 +137,7 @@
 </ul>
 
 {{include:common-results}}
-{{include:common-points}}
+{{include:common-extras}}
 
 <h2>Latihan</h2>
 <div class="box ex"><h4>Latihan 1: Alpha-Beta dengan tangan</h4>
@@ -150,20 +151,21 @@
 <li>Ubah <code>orderMinDepth</code> ke 99 (praktis mematikan pengurutan). Bandingkan kolom "nodes Alpha-Beta" di bagian 2.</li></ol></div>
 
 <h2>Pertanyaan Presentasi yang Mungkin Muncul</h2>
-<div class="qa"><p class="q">Apa bedanya Minimax dan Alpha-Beta?</p><p class="a">Minimax memeriksa semua cabang. Alpha-Beta memakai batas α dan β untuk melewati cabang yang terbukti tidak mengubah keputusan. Hasilnya sama, node jauh lebih sedikit: di depth 3 hemat 94,9%.</p></div>
+<div class="qa"><p class="q">Apa bedanya Minimax dan Alpha-Beta?</p><p class="a">Minimax memeriksa semua cabang. Alpha-Beta memakai batas α dan β untuk melewati cabang yang terbukti tidak mengubah keputusan. Hasilnya sama, node jauh lebih sedikit: di depth 3 hemat 94,6%.</p></div>
 <div class="qa"><p class="q">Bagaimana kalian yakin hasilnya sama?</p><p class="a">Uji di 30 posisi dari seed tetap, depth 1–3: skor dan langkah identik 30/30. Bedanya hanya flag <code>prune</code> di fungsi yang sama.</p></div>
 <div class="qa"><p class="q">Kenapa depth 1 tidak ada penghematan?</p><p class="a">Di depth 1 semua anak akar langsung dievaluasi; tidak ada simpul MIN tempat β bisa turun di bawah α, jadi tidak ada cutoff.</p></div>
 <div class="qa"><p class="q">Kenapa kandidat jebakan dibatasi 12? Bukankah itu bisa membuang langkah bagus?</p><p class="a">Bisa, dan itu trade-off yang kami pilih. Tanpa batas, branching factor bisa ±360 dan Expert tidak akan selesai dalam 4 detik. Jebakan yang efektif hampir selalu di sekitar lawan, jadi ring 1 dan ring 2 dipilih lebih dulu.</p></div>
 <div class="qa"><p class="q">Apa yang terjadi kalau waktu habis?</p><p class="a">Pencarian dihentikan dengan exception <code>ABORT</code>; AI memakai langkah terbaik dari langkah akar yang sudah selesai dihitung, dan panel menampilkan "batas 4 dtk".</p></div>
+<div class="qa"><p class="q">Bagaimana AI tahu soal aturan makan?</p><p class="a">Di tiga tempat: <code>generateMoves</code> membuat langkah makan tanpa jebakan, <code>orderMoves</code> memeriksanya paling dulu, dan <code>ab</code>/<code>evaluate</code> menilai posisi "dimakan" sebagai kalah dan "bisa makan" sebagai menang di ply berikutnya. Karena itu Easy (depth 1) pun tidak melompat ke kotak yang bisa dimakan musuh kalau ada pilihan aman.</p></div>
 <div class="qa"><p class="q">Kenapa skor menang dikurangi ply?</p><p class="a">Supaya AI memilih kemenangan tercepat dan, kalau kalah, kekalahan terlambat. Tanpa itu, semua kemenangan bernilai sama dan AI bisa "bermain-main".</p></div>
-<div class="qa"><p class="q">Kenapa Expert kalah win rate dari Hard melawan greedy?</p><p class="a">Lihat Bab Hasil Pengujian: variasi 100 game, evaluasi BFS/DFS yang berupa perkiraan, dan pembatasan kandidat. Melawan pemain acak semua level tetap 100%.</p></div>
+<div class="qa"><p class="q">Kenapa win rate melawan greedy tidak naik seiring level?</p><p class="a">Itu temuan pengujian yang kami laporkan apa adanya: Medium 100%, Hard 79%. Penyebabnya belum diuji khusus; dugaan kami ada di Bab Hasil Pengujian (efek kedalaman ganjil/genap dengan aturan makan, evaluasi yang berupa perkiraan, pembatasan kandidat). Melawan pemain acak semua level 99–100%.</p></div>
 <div class="qa"><p class="q">Apakah ini memakai machine learning seperti AlphaZero [2]?</p><p class="a">Tidak. Referensi [2] dipakai sebagai konteks game AI. Kami hanya memakai empat algoritma yang diizinkan: Minimax, Alpha-Beta, BFS, DFS. Tidak ada training.</p></div>
 
 <h2>Checklist Sebelum Presentasi</h2>
 <ul class="check">
   <li>Bisa menggambar contoh pohon Alpha-Beta di papan tulis dan menunjuk cutoff-nya.</li>
   <li>Bisa membuka <code>js/ai.js</code> dan menunjuk baris untuk setiap baris pseudocode.</li>
-  <li>Hafal angka: depth 3 → 739.226 vs 37.689 node (hemat 94,9%), 30/30 identik.</li>
+  <li>Hafal angka: depth 3 → 999.825 vs 54.465 node (hemat 94,6%), 30/30 identik.</li>
   <li>Sudah mencoba demo Alpha-Beta ON/OFF di Hard dan melihat panel berubah.</li>
   <li>Sudah menjalankan <code>node tests/run.mjs --quick</code> sendiri.</li>
   <li>Bisa menjelaskan alur satu giliran (Bab 4) tanpa melihat catatan.</li>

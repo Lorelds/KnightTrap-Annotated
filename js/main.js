@@ -1,8 +1,8 @@
 // App shell: screens, menus, settings, online lobby, and the glue between Game and the DOM.
-// [ID] Kerangka aplikasi: layar, menu, pengaturan, lobi online, poin & leaderboard, dan penghubung antara Game dan halaman.
+// [ID] Kerangka aplikasi: layar, menu, pengaturan, lobi online, dan penghubung antara Game dan halaman.
 
-// [ID] Kedalaman per level dan pengaturan leaderboard.
-import { DIFFICULTY, LEADERBOARD } from './config.js';
+// [ID] Angka tetap: kedalaman tiap level dan lama satu giliran (TURN_SECONDS).
+import { DIFFICULTY, TURN_SECONDS } from './config.js';
 // [ID] Fungsi aturan yang dibutuhkan layar.
 import { createState, legalJumps, serialize, deserialize, squareName } from './rules.js';
 // [ID] Skor menang (untuk menampilkan "Menang dalam n giliran").
@@ -15,17 +15,6 @@ import { Game } from './game.js';
 import { OnlineSession, normalizeCode } from './net.js';
 // [ID] Bahasa: atur, baca, terjemahkan.
 import { setLang, getLang, t } from './i18n.js';
-// [ID] Suara.
-import { sfx, setSoundEnabled, unlockAudio } from './audio.js';
-// [ID] Bara latar belakang dan cek "kurangi animasi".
-import { startBackgroundEmbers, reducedMotion } from './fx.js';
-// [ID] Fungsi poin dan nama tim.
-import {
-  // [ID] hitung skor, mode berpoin, bersihkan/cek nama, kunci nama, poin default, periksa poin, nilai per level, daftar level.
-  scoreGame, pointsEnabled, cleanName, validName, nameKey, defaultRules, normalizeRules, levelValues, LEVELS,
-} from './scoring.js';
-// [ID] Tabel poin per level.
-import { pointsTable } from './points-table.js';
 
 // [ID] Singkatan: $ = cari satu elemen dengan selector CSS.
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -36,8 +25,8 @@ const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 // [ID] ---- Pengaturan (disimpan di browser ini saja) ----
 // [ID] Nama kunci penyimpanan pengaturan di localStorage.
 const SETTINGS_KEY = 'knighttrap.settings';
-// [ID] Nilai default: suara ON, bahasa Indonesia, level Medium, pemain jalan duluan, Alpha-Beta ON.
-const settings = { sound: true, lang: 'id', diff: 'medium', first: 'human', prune: true };
+// [ID] Pengaturan default: bahasa Indonesia, level Medium, manusia jalan duluan, Alpha-Beta ON.
+const settings = { lang: 'id', diff: 'medium', first: 'human', prune: true };
 // [ID] Coba baca pengaturan tersimpan.
 try {
   // [ID] Timpa default dengan yang tersimpan.
@@ -54,65 +43,12 @@ function saveSettings() {
   } catch {}
 }
 
-// Team name for the leaderboard, and scores that could not be sent yet.
-// [ID] Nama tim untuk leaderboard, dan skor yang belum terkirim.
-// [ID] Kunci penyimpanan nama tim.
-const TEAM_KEY = 'knighttrap.team';
-// [ID] Kunci penyimpanan skor yang tertunda.
-const PENDING_KEY = 'knighttrap.pending';
-// [ID] Nama tim saat ini.
-let team = '';
-// [ID] Coba baca nama tim tersimpan.
-try {
-  // [ID] Bersihkan namanya.
-  team = cleanName(localStorage.getItem(TEAM_KEY) || '');
-  // [ID] Tidak sah: kosongkan.
-  if (!validName(team)) team = '';
-// [ID] Gagal: biarkan kosong.
-} catch {}
-// [ID] Ganti nama tim.
-function setTeam(name) {
-  // [ID] Simpan di variabel.
-  team = name;
-  // [ID] Coba simpan di browser.
-  try {
-    // [ID] Simpan.
-    localStorage.setItem(TEAM_KEY, name);
-  // [ID] Gagal: abaikan.
-  } catch {}
-  // [ID] Tampilkan di layar Single Player.
-  $('#sp-team-name').textContent = team || '—';
-}
-// [ID] Baca daftar skor tertunda.
-function loadPending() {
-  // [ID] Coba baca.
-  try {
-    // [ID] Ubah teks JSON menjadi array.
-    const list = JSON.parse(localStorage.getItem(PENDING_KEY) || '[]');
-    // [ID] Pastikan hasilnya array.
-    return Array.isArray(list) ? list : [];
-  // [ID] Gagal:
-  } catch {
-    // [ID] daftar kosong.
-    return [];
-  }
-}
-// [ID] Simpan daftar skor tertunda.
-function savePending(list) {
-  // [ID] Coba simpan.
-  try {
-    // [ID] Simpan sebagai JSON.
-    localStorage.setItem(PENDING_KEY, JSON.stringify(list));
-  // [ID] Gagal: abaikan.
-  } catch {}
-}
-
 // ---- Screens ----------------------------------------------------------------
 // [ID] ---- Layar ----
 // [ID] Layar yang sedang tampil.
 let currentScreen = 'menu';
-// [ID] Tujuan tombol "kembali" untuk setiap layar.
-const backTarget = { sp: 'menu', mp: 'menu', howto: 'menu', settings: 'menu', lobby: 'mp', board: 'menu' };
+// [ID] Tombol kembali (←) di tiap layar menuju ke layar mana.
+const backTarget = { sp: 'menu', mp: 'menu', howto: 'menu', settings: 'menu', lobby: 'mp' };
 
 // [ID] Tampilkan layar "name", sembunyikan yang lain.
 function showScreen(name) {
@@ -122,14 +58,6 @@ function showScreen(name) {
   currentScreen = name;
   // [ID] Gulir ke atas.
   window.scrollTo(0, 0);
-  // [ID] Animasi papan menu hanya jalan di layar menu,
-  if (name === 'menu') startMenuBoard();
-  // [ID] selain itu dihentikan.
-  else stopMenuBoard();
-  // [ID] Leaderboard hanya diperbarui selama layarnya terbuka,
-  if (name === 'board') startLeaderboard();
-  // [ID] selain itu dihentikan.
-  else stopLeaderboard();
 }
 
 // ---- Toast & confirm ---------------------------------------------------------
@@ -165,8 +93,8 @@ function confirmDialog(text) {
       <div class="modal-card" role="dialog" aria-modal="true">
         <h2 style="font-size:24px;margin-top:0">${text}</h2>
         <div class="go-actions" style="margin-top:20px">
-          <button class="btn btn-primary btn-lg" data-yes>${t('mainMenu')}</button>
-          <button class="btn btn-ghost" data-no>${getLang() === 'id' ? 'Lanjut main' : 'Keep playing'}</button>
+          <button class="btn btn-primary" data-yes>${t('mainMenu')}</button>
+          <button class="btn" data-no>${getLang() === 'id' ? 'Lanjut main' : 'Keep playing'}</button>
         </div>
       </div>`;
     // [ID] Tutup dialog dan kirim jawaban.
@@ -188,129 +116,6 @@ function confirmDialog(text) {
     // [ID] Fokus ke tombol "lanjut" (pilihan aman).
     $('[data-no]', wrap).focus();
   });
-}
-
-// [ID] Dialog isi nama tim. Mengembalikan Promise berisi nama, atau null kalau batal.
-function nameDialog() {
-  // [ID] Promise yang selesai saat pengguna menyimpan atau batal.
-  return new Promise((resolve) => {
-    // [ID] Lapisan gelap.
-    const wrap = document.createElement('div');
-    // [ID] Class modal.
-    wrap.className = 'modal';
-    // [ID] Isi: judul, petunjuk, kolom nama (maks. 20 karakter), pesan error, tombol Simpan dan Batal.
-    wrap.innerHTML = `
-      <form class="modal-card name-card" role="dialog" aria-modal="true" aria-labelledby="name-title" novalidate>
-        <h2 id="name-title" style="font-size:24px">${t('teamName')}</h2>
-        <p>${t('teamPrompt')}</p>
-        <input class="name-input" maxlength="${LEADERBOARD.nameMax}" autocomplete="off" spellcheck="false" aria-label="${t('teamName')}">
-        <p class="name-error" aria-live="polite"></p>
-        <div class="go-actions">
-          <button class="btn btn-primary btn-lg" type="submit">${t('save')}</button>
-          <button class="btn btn-ghost" type="button" data-no>${t('cancel')}</button>
-        </div>
-      </form>`;
-    // [ID] Kolom nama.
-    const input = $('input', wrap);
-    // [ID] Isi dengan nama sekarang.
-    input.value = team;
-    // [ID] Tutup dialog dan kirim jawaban.
-    const done = (v) => {
-      // [ID] Hapus dialog.
-      wrap.remove();
-      // [ID] Selesaikan Promise.
-      resolve(v);
-    };
-    // [ID] Klik di luar atau tombol Batal: null.
-    wrap.addEventListener('click', (e) => {
-      // [ID] (batal)
-      if (e.target === wrap || e.target.closest('[data-no]')) done(null);
-    });
-    // [ID] Tombol Esc: batal.
-    wrap.addEventListener('keydown', (e) => {
-      // [ID] (batal)
-      if (e.key === 'Escape') done(null);
-    });
-    // [ID] Saat form dikirim (Simpan atau Enter):
-    $('form', wrap).addEventListener('submit', (e) => {
-      // [ID] jangan muat ulang halaman,
-      e.preventDefault();
-      // [ID] bersihkan nama,
-      const name = cleanName(input.value);
-      // [ID] kalau panjangnya tidak sah:
-      if (!validName(name)) {
-        // [ID] tampilkan pesan "Nama harus 2–20 karakter",
-        $('.name-error', wrap).textContent = t('teamInvalid', LEADERBOARD.nameMin, LEADERBOARD.nameMax);
-        // [ID] fokus kembali ke kolom,
-        input.focus();
-        // [ID] berhenti.
-        return;
-      }
-      // [ID] Nama sah: kirim.
-      done(name);
-    });
-    // [ID] Pasang dialog.
-    document.body.appendChild(wrap);
-    // [ID] Fokus ke kolom nama.
-    input.focus();
-    // [ID] Pilih semua teks supaya mudah diganti.
-    input.select();
-  });
-}
-
-// Asks for the team name once; later games reuse it.
-// [ID] Minta nama tim sekali saja; game berikutnya memakai nama yang sama. force = paksa tampilkan dialog (tombol Ganti).
-async function ensureTeam(force = false) {
-  // [ID] Sudah punya nama dan tidak dipaksa: pakai.
-  if (team && !force) return team;
-  // [ID] Tampilkan dialog.
-  const name = await nameDialog();
-  // [ID] Kalau diisi, simpan.
-  if (name) setTeam(name);
-  // [ID] Nama (atau null kalau batal).
-  return name;
-}
-
-// ---- Menu decoration: a perspective board that burns and traps squares -----
-// [ID] ---- Hiasan menu: papan miring yang kotaknya menyala dan berlubang acak ----
-// [ID] Timer animasi menu.
-let menuTimer = 0;
-// [ID] Daftar 49 kotak hiasan.
-const menuCells = [];
-// [ID] Buat kotak hiasan.
-function buildMenuBoard() {
-  // [ID] Wadah papan menu.
-  const el = $('#menu-board');
-  // [ID] 49 kotak.
-  for (let i = 0; i < 49; i++) {
-    // [ID] Satu <span>.
-    const s = document.createElement('span');
-    // [ID] Masukkan ke wadah.
-    el.appendChild(s);
-    // [ID] Simpan.
-    menuCells.push(s);
-  }
-}
-// [ID] Mulai animasi menu.
-function startMenuBoard() {
-  // [ID] Sudah jalan, atau animasi dikurangi: jangan.
-  if (menuTimer || reducedMotion()) return;
-  // [ID] Setiap 650 ms:
-  menuTimer = setInterval(() => {
-    // [ID] pilih satu kotak acak,
-    const c = menuCells[Math.floor(Math.random() * 49)];
-    // [ID] kalau sudah menyala/berlubang: kembalikan normal,
-    if (c.classList.contains('lit') || c.classList.contains('pit')) c.className = '';
-    // [ID] kalau normal: 70% menyala, 30% berlubang.
-    else c.className = Math.random() < 0.7 ? 'lit' : 'pit';
-  }, 650);
-}
-// [ID] Hentikan animasi menu.
-function stopMenuBoard() {
-  // [ID] Hentikan timer.
-  clearInterval(menuTimer);
-  // [ID] Tandai berhenti.
-  menuTimer = 0;
 }
 
 // ---- How to play ------------------------------------------------------------
@@ -390,8 +195,8 @@ function buildHowTo() {
       title: t('step3Title'),
       // [ID] Penjelasan.
       text: t('step3Text'),
-      // [ID] Papan mini.
-      board: miniBoard({ k0: [0, 3], k1: [4, 4], burned: [[2, 2]], trap: [[2, 3]], threat: [[3, 2]] }),
+      // [ID] Papan mini: Biru di atas, Oranye di pojok kanan bawah, satu kotak terbakar, satu kotak dijebak.
+      board: miniBoard({ k0: [0, 3], k1: [4, 4], burned: [[2, 2]], trap: [[2, 3]] }),
     },
   ];
   // [ID] Ubah setiap langkah menjadi kartu HTML lalu gabungkan.
@@ -402,6 +207,12 @@ function buildHowTo() {
     )
     // [ID] Gabung tanpa pemisah.
     .join('');
+  // [ID] Kotak aturan di bawah langkah-langkah.
+  const rules = $('.lose-rule');
+  // [ID] Hapus aturan tambahan lama (supaya tidak dobel saat bahasa diganti).
+  for (const p of $$('.added-rule', rules)) p.remove();
+  // [ID] Tambahkan aturan Batal lompat, Waktu (pakai TURN_SECONDS), dan Petunjuk.
+  rules.insertAdjacentHTML('beforeend', `<p class="added-rule">${t('undoRule')}</p><p class="added-rule">${t('timeRule', TURN_SECONDS)}</p><p class="added-rule">${t('hintRule')}</p>`);
 }
 
 // ---- Game UI glue -----------------------------------------------------------
@@ -416,214 +227,6 @@ let gameConfig = null; // how to start a rematch
 let session = null;
 // [ID] Status online: nomor ronde, siapa yang minta main lagi, apakah lawan keluar.
 let online = { round: 0, myRematch: false, peerRematch: false, left: false };
-
-// [ID] Skor yang sedang tampil (untuk menghitung "+N").
-let liveScore = 0;
-// [ID] Game Single Player yang selesai dan menunggu tombol "Kirim skor".
-let lastGame = null; // finished Single Player game waiting for "Submit score"
-
-// [ID] Riwayat game dalam bentuk daftar { jump, trap }.
-const gameMoves = (g) => g.history.map(({ jump, trap }) => ({ jump, trap }));
-// [ID] Hitung skor game g saat ini dengan nilai poin yang dipakai game itu.
-const currentScore = (g) => scoreGame(gameMoves(g), { mode: g.mode, level: g.level, humanSide: g.mySide, rules: g.rules });
-
-// Point values: the defaults until /api/config answers with the admin's saved copy.
-// [ID] Nilai poin: default sampai /api/config mengirim nilai yang disimpan admin.
-let rules = defaultRules();
-
-// [ID] Ambil nilai poin terbaru dari server.
-async function loadRules() {
-  // [ID] Coba ambil.
-  try {
-    // [ID] Minta /api/config (tanpa cache).
-    const res = await fetch('/api/config', { cache: 'no-store' });
-    // [ID] Kalau berhasil, baca JSON.
-    const data = res.ok ? await res.json() : null;
-    // [ID] Periksa nilainya.
-    const fresh = normalizeRules(data?.rules);
-    // [ID] Sah: pakai.
-    if (fresh) rules = fresh;
-  // [ID] Server tidak ada (misalnya npx serve): tetap pakai default.
-  } catch {}
-  // [ID] Perbarui tampilan poin.
-  renderPointsInfo();
-}
-
-// [ID] Tampilkan poin per level di kartu kesulitan dan di tabel.
-function renderPointsInfo() {
-  // [ID] Untuk setiap level:
-  for (const lvl of LEVELS) {
-    // [ID] cari label poin di kartunya,
-    const el = $(`[data-pts="${lvl}"]`);
-    // [ID] tulis "+N poin/langkah".
-    if (el) el.textContent = t('ptsPerMove', levelValues(rules, lvl).move);
-  }
-  // [ID] Tabel "Cara dapat poin" dengan level terpilih disorot.
-  $('#sp-points').innerHTML = pointsTable(rules, t, settings.diff);
-}
-
-// [ID] Putar ulang animasi kilat di elemen.
-function flash(el) {
-  // [ID] Hapus class.
-  el.classList.remove('flash');
-  // [ID] Paksa hitung ulang supaya animasi bisa diulang.
-  void el.offsetWidth;
-  // [ID] Pasang lagi.
-  el.classList.add('flash');
-}
-
-// [ID] Perbarui skor di pojok atas dan munculkan "+N" di papan.
-function updateScore(history, sc) {
-  // [ID] Sembunyikan kotak skor kalau mode tidak berpoin.
-  $('#score-pill').hidden = !sc;
-  // [ID] Tidak berpoin: selesai.
-  if (!sc) return;
-  // [ID] Poin yang baru didapat.
-  const gained = sc.total - liveScore;
-  // [ID] Simpan skor baru.
-  liveScore = sc.total;
-  // [ID] Tulis skor.
-  $('#score-val').textContent = sc.total.toLocaleString();
-  // [ID] Langkah terakhir.
-  const last = history.at(-1);
-  // [ID] Kalau ada poin baru dan itu langkah pemain:
-  if (gained > 0 && last?.side === game.mySide) {
-    // [ID] munculkan "+N" di kotak pendaratan,
-    board.popText(last.jump, `+${gained}`);
-    // [ID] kilatkan angka skor.
-    flash($('#score-val'));
-  }
-}
-
-// [ID] Rincian poin di layar game over.
-function renderBreakdown(sc, level, used) {
-  // [ID] Nilai poin level ini.
-  const per = levelValues(used, level);
-  // [ID] Label level dan pengali, misalnya "Hard · ×2".
-  $('#go-mult').textContent = `${t(level)} · ×${sc.mult}`;
-  // [ID] Baris "Langkah (n × poin)".
-  const rows = [[t('ptMoves', sc.humanMoves, per.move), sc.movePoints]];
-  // [ID] Kalau menang, tambah baris "Bonus menang".
-  if (sc.won) rows.push([t('ptWin'), sc.winPoints]);
-  // [ID] Tulis daftar rincian:
-  $('#go-breakdown').innerHTML =
-    // [ID] setiap baris rincian,
-    rows.map(([label, v]) => `<li><span>${label}</span><b>+${v.toLocaleString()}</b></li>`).join('') +
-    // [ID] lalu baris Total.
-    `<li class="total"><span>${t('ptTotal')}</span><b>${sc.total.toLocaleString()}</b></li>`;
-}
-
-// [ID] ID unik untuk setiap game (supaya server menolak game yang dikirim dua kali).
-function newGameId() {
-  // [ID] Pakai UUID bawaan browser kalau ada.
-  if (globalThis.crypto?.randomUUID) return crypto.randomUUID();
-  // [ID] Cadangan: waktu + angka acak.
-  return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 12);
-}
-
-// [ID] Tulis status pengiriman skor; kind 'ok' = hijau, 'bad' = merah.
-function setSubmitStatus(text, kind = '') {
-  // [ID] Elemen status.
-  const el = $('#go-submit-status');
-  // [ID] Teks.
-  el.textContent = text;
-  // [ID] Class warna.
-  el.className = `go-submit-status ${kind}`;
-}
-
-// POST one game. kind: 'ok' | 'rate' | 'dup' | 'rejected' | 'offline'.
-// [ID] Kirim satu game ke server. Hasil kind: 'ok' (berhasil), 'rate' (terlalu cepat), 'dup' (sudah dikirim),
-// [ID] 'rejected' (ditolak), 'offline' (server tidak bisa dihubungi).
-async function postScore(payload) {
-  // [ID] Respons server.
-  let res;
-  // [ID] Coba kirim.
-  try {
-    // [ID] POST ke /api/score:
-    res = await fetch('/api/score', {
-      // [ID] metode POST,
-      method: 'POST',
-      // [ID] isi berupa JSON,
-      headers: { 'Content-Type': 'application/json' },
-      // [ID] data game.
-      body: JSON.stringify(payload),
-    });
-  // [ID] Jaringan gagal:
-  } catch {
-    // [ID] offline.
-    return { kind: 'offline' };
-  }
-  // [ID] Isi jawaban.
-  let data = null;
-  // [ID] Coba baca JSON.
-  try {
-    // [ID] Baca.
-    data = await res.json();
-  // [ID] Bukan JSON: biarkan null.
-  } catch {}
-  // [ID] Berhasil.
-  if (res.ok && data?.ok) return { kind: 'ok', data };
-  // [ID] 429 = terlalu cepat.
-  if (res.status === 429) return { kind: 'rate' };
-  // [ID] 409 = game sudah pernah dikirim.
-  if (res.status === 409) return { kind: 'dup' };
-  // [ID] 400 = data ditolak (misalnya langkah ilegal).
-  if (res.status === 400 && data) return { kind: 'rejected', data };
-  // 404 on a plain static server, 503 without Redis, 5xx: keep the game for later.
-  // [ID] Selain itu (404, 503, 5xx): anggap offline, simpan untuk dikirim nanti.
-  return { kind: 'offline' };
-}
-
-// [ID] Tombol "Kirim skor" ditekan.
-async function submitLastGame() {
-  // [ID] Game yang akan dikirim.
-  const g = lastGame;
-  // [ID] Tidak ada, atau sudah dikirim: selesai.
-  if (!g || g.sent) return;
-  // [ID] Pastikan ada nama tim.
-  const name = await ensureTeam();
-  // [ID] Batal isi nama, atau game sudah berganti: selesai.
-  if (!name || lastGame !== g) return;
-  // [ID] Tombol kirim.
-  const btn = $('#go-submit');
-  // [ID] Matikan tombol supaya tidak diklik dua kali.
-  btn.disabled = true;
-  // [ID] "Mengirim…".
-  setSubmitStatus(t('submitting'));
-  // [ID] Data yang dikirim: nama, level, sisi pemain, ID game, daftar langkah (tanpa skor!).
-  const payload = { name, difficulty: g.difficulty, side: g.side, id: g.id, moves: g.moves };
-  // [ID] Kirim.
-  const r = await postScore(payload);
-  // [ID] Game sudah berganti saat menunggu: selesai.
-  if (lastGame !== g) return;
-  // [ID] Terlalu cepat:
-  if (r.kind === 'rate') {
-    // [ID] aktifkan tombol lagi,
-    btn.disabled = false;
-    // [ID] "Terlalu cepat. Coba lagi…",
-    setSubmitStatus(t('submitRate'), 'bad');
-    // [ID] selesai.
-    return;
-  }
-  // [ID] Selain itu, game dianggap sudah ditangani.
-  g.sent = true;
-  // [ID] Berhasil:
-  if (r.kind === 'ok') {
-    // [ID] "Terkirim! +poin · peringkat · total tim" (poin dihitung server).
-    setSubmitStatus(t('submitted', r.data.score.total.toLocaleString(), r.data.rank, r.data.team.total.toLocaleString()), 'ok');
-  }
-  // [ID] Sudah pernah dikirim.
-  else if (r.kind === 'dup') setSubmitStatus(t('submitDup'), 'bad');
-  // [ID] Ditolak server, tampilkan kode alasannya.
-  else if (r.kind === 'rejected') setSubmitStatus(`${t('submitRejected')} (${r.data.error})`, 'bad');
-  // [ID] Offline:
-  else {
-    // [ID] simpan di daftar tertunda,
-    savePending([...loadPending(), payload]);
-    // [ID] "Leaderboard offline. Skor disimpan…".
-    setSubmitStatus(t('submitOffline'), 'bad');
-  }
-}
 
 // [ID] Nama warna sisi: 0 = Biru, 1 = Oranye.
 function colorName(side) {
@@ -663,33 +266,39 @@ const ui = {
       const mob = legalJumps(s, sd).length;
       // [ID] tulis angkanya,
       $('.pcard-mob b', card).textContent = mob;
-      // [ID] merah berkedip kalau tinggal 1 atau 0,
+      // [ID] angka merah kalau tinggal 1 atau 0,
       $('.pcard-mob', card).classList.toggle('danger', g.phase !== 'over' && mob <= 1);
       // [ID] sorot yang sedang jalan,
       card.classList.toggle('is-turn', g.phase !== 'over' && s.turn === sd);
-      // [ID] sorot emas pemenang.
+      // [ID] sorot pemenang.
       card.classList.toggle('is-winner', g.phase === 'over' && g.winner === sd);
     }
   },
-  // [ID] Nyalakan/matikan animasi "berpikir".
+  // [ID] Tampilkan/sembunyikan tulisan "berpikir".
   thinking(on) {
     // [ID] (class on)
     $('#thinking').classList.toggle('on', on);
   },
-  // [ID] Isi panel "Otak AI" dengan hasil pencarian.
+  // [ID] Tampilkan sisa waktu giliran (null = sembunyikan).
+  timer(seconds) {
+    // [ID] Elemen penghitung waktu.
+    const el = $('#turn-timer');
+    // [ID] Tulis "n dtk", atau kosong kalau null.
+    el.textContent = seconds === null ? '' : t('timerLeft', seconds);
+    // [ID] Class low (merah) saat sisa 3 detik atau kurang.
+    el.classList.toggle('low', seconds !== null && seconds <= 3);
+  },
+  // [ID] Waktu habis: tampilkan pesan.
+  timeUp() {
+    // [ID] Pesan singkat "Waktu habis..." di bawah layar.
+    toast(t('timeUp'));
+  },
+  // [ID] Isi panel "Statistik AI" dengan hasil pencarian.
   stats(res) {
-    // [ID] Fungsi bantu: isi elemen dan kilatkan.
+    // [ID] Fungsi bantu: isi elemen dengan id tertentu,
     const set = (id, html) => {
-      // [ID] Elemen.
-      const el = $(id);
-      // [ID] Isi.
-      el.innerHTML = html;
-      // [ID] Hapus class kilat.
-      el.classList.remove('flash');
-      // [ID] Paksa hitung ulang.
-      void el.offsetWidth;
-      // [ID] Kilatkan.
-      el.classList.add('flash');
+      // [ID] isi HTML elemen itu.
+      $(id).innerHTML = html;
     };
     // [ID] Kedalaman.
     set('#st-depth', String(res.depth));
@@ -715,18 +324,14 @@ const ui = {
     // [ID] Tulis skor.
     set('#st-score', score);
   },
-  // [ID] Perbarui riwayat langkah (dan skor).
+  // [ID] Perbarui riwayat langkah.
   log(history) {
     // [ID] Elemen daftar riwayat.
     const ol = $('#log');
-    // [ID] Skor saat ini (hanya mode Single Player).
-    const sc = game && pointsEnabled(game.mode) ? currentScore(game) : null;
     // [ID] Riwayat kosong:
     if (!history.length) {
-      // [ID] "Belum ada langkah.",
-      ol.innerHTML = `<li class="log-empty" style="display:block;background:none">${t('logEmpty')}</li>`;
-      // [ID] reset skor,
-      updateScore(history, sc);
+      // [ID] tulis "Belum ada langkah." lalu
+      ol.innerHTML = `<li class="log-empty">${t('logEmpty')}</li>`;
       // [ID] selesai.
       return;
     }
@@ -736,17 +341,13 @@ const ui = {
       .map(
         // [ID] nomor dan warna pemain,
         (h, i) => `<li class="s${h.side}"><span class="n">${i + 1}.</span><span class="sw"></span>` +
-          // [ID] "asal → tujuan" dan "✕ jebakan",
-          `<span class="mv">${squareName(h.from)} → <b>${squareName(h.jump)}</b>${h.trap >= 0 ? `<span class="x">✕ ${squareName(h.trap)}</span>` : ''}</span>` +
-          // [ID] poin langkah ini kalau ada ("+20").
-          (sc?.steps[i] ? `<span class="pts">+${sc.steps[i].toLocaleString()}</span>` : '') + '</li>',
+          // [ID] langkah "asal → tujuan", kotak jebakan (✕), dan tanda "makan" kalau langkah itu memakan musuh.
+          `<span class="mv">${squareName(h.from)} → <b>${squareName(h.jump)}</b>${h.trap >= 0 ? `<span class="x">✕ ${squareName(h.trap)}</span>` : ''}${h.ate ? `<span class="x">${t('ateMark')}</span>` : ''}</span></li>`,
       )
       // [ID] gabungkan.
       .join('');
     // [ID] Gulir ke langkah terbaru.
     ol.scrollTop = ol.scrollHeight;
-    // [ID] Perbarui skor dan "+N".
-    updateScore(history, sc);
   },
   // [ID] Game selesai: siapkan layar game over.
   over(info) {
@@ -764,69 +365,52 @@ const ui = {
     let sub;
     // [ID] Gaya menang atau kalah.
     let win = true;
+    // [ID] Keterangan untuk yang kalah: "dimakan" atau "tidak punya lompatan legal".
+    const loserSub = t(info.eaten ? 'eatenSub' : 'trappedSub', loseName);
     // [ID] Mode lokal:
     if (g.mode === 'local') {
       // [ID] "<nama> Menang!",
       title = t('sideWins', winName);
-      // [ID] "<nama> tidak punya lompatan legal.".
-      sub = t('trappedSub', loseName);
+      // [ID] keterangannya untuk yang kalah.
+      sub = loserSub;
     // [ID] Mode AI atau online:
     } else {
       // [ID] menang kalau pemenangnya saya,
       win = me === info.winner;
       // [ID] "Kamu Menang!" atau "Kamu Kalah",
       title = win ? t('youWin') : t('youLose');
-      // [ID] keterangan khusus mode AI,
-      if (g.mode === 'ai') sub = win ? t('youWinSub') : t('aiWinSub');
-      // [ID] keterangan mode online.
-      else sub = t('trappedSub', loseName);
-    }
-    // [ID] Skor akhir.
-    let score = null;
-    // [ID] Hanya mode Single Player:
-    if (pointsEnabled(g.mode)) {
-      // [ID] hitung skor,
-      score = currentScore(g);
-      // [ID] tampilkan rinciannya.
-      renderBreakdown(score, g.level, g.rules);
+      // [ID] Mode AI:
+      if (g.mode === 'ai') {
+        // [ID] kalau ada yang dimakan: "Kamu memakan knight AI" atau "AI memakan knight-mu",
+        if (info.eaten) sub = win ? t('youAteSub') : t('aiAteSub');
+        // [ID] kalau tidak: "Knight AI terkurung" atau "AI berhasil mengurung knight-mu".
+        else sub = win ? t('youWinSub') : t('aiWinSub');
+      // [ID] Mode online: keterangan untuk yang kalah.
+      } else sub = loserSub;
     }
     // [ID] Buka layar game over.
-    openGameOver({ title, sub, win, winnerSide: info.winner, moves: info.moves, score });
-    // [ID] Simpan game ini untuk tombol "Kirim skor".
-    if (score) lastGame = { difficulty: g.level, side: me, id: newGameId(), moves: gameMoves(g), sent: false };
+    openGameOver({ title, sub, win, moves: info.moves });
   },
 };
 
-// [ID] Tampilkan layar game over. leftOnly = lawan online keluar (tanpa tombol Main lagi).
-function openGameOver({ title, sub, win, winnerSide, moves, leftOnly = false, score = null }) {
+// [ID] Buka layar game over dengan judul, keterangan, gaya menang, jumlah langkah. leftOnly = lawan keluar.
+function openGameOver({ title, sub, win, moves, leftOnly = false }) {
   // [ID] Kartu game over.
   const card = $('#gameover .modal-card');
   // [ID] Gaya menang,
   card.classList.toggle('win', win);
-  // [ID] atau kalah.
-  card.classList.toggle('lose', !win);
   // [ID] Judul.
   $('#go-title').textContent = title;
   // [ID] Keterangan.
   $('#go-sub').textContent = sub;
   // [ID] Jumlah langkah.
   $('#go-moves').textContent = moves;
-  // [ID] Warna knight di atas kartu sesuai pemenang.
-  $('#go-glyph').setAttribute('class', `kglyph p${winnerSide ?? 0}`);
   // [ID] Sembunyikan "Main lagi" kalau lawan keluar.
   $('#go-rematch').hidden = leftOnly;
   // [ID] Aktifkan "Main lagi".
   $('#go-rematch').disabled = false;
   // [ID] Sembunyikan pesan tunggu.
   $('#go-wait').hidden = true;
-  // [ID] Bagian poin hanya kalau ada skor.
-  $('#go-score').hidden = !score;
-  // [ID] Aktifkan "Kirim skor".
-  $('#go-submit').disabled = false;
-  // [ID] Kosongkan status kirim.
-  setSubmitStatus('');
-  // [ID] Lupakan game sebelumnya.
-  lastGame = null;
   // [ID] Tampilkan.
   $('#gameover').hidden = false;
   // [ID] Fokus ke tombol utama.
@@ -837,17 +421,15 @@ function openGameOver({ title, sub, win, winnerSide, moves, leftOnly = false, sc
 function closeGameOver() {
   // [ID] Sembunyikan.
   $('#gameover').hidden = true;
-  // [ID] Lupakan game yang menunggu dikirim.
-  lastGame = null;
 }
 
 // [ID] Siapkan panel samping sesuai mode.
 function resetSidePanels(mode) {
-  // [ID] Panel "Otak AI" hanya di mode AI.
+  // [ID] Panel "Statistik AI" hanya di mode AI.
   $('#ai-panel').hidden = mode !== 'ai';
   // [ID] Kosongkan semua angka statistik.
   for (const id of ['#st-depth', '#st-nodes', '#st-cutoffs', '#st-time', '#st-score']) $(id).textContent = '–';
-  // [ID] Matikan animasi berpikir.
+  // [ID] Sembunyikan tulisan "berpikir".
   ui.thinking(false);
   // [ID] Status koneksi hanya di mode online.
   $('#net-pill').hidden = mode !== 'online';
@@ -863,6 +445,8 @@ function launch(cfg, state) {
   gameConfig = cfg;
   // [ID] Siapkan panel samping.
   resetSidePanels(cfg.mode);
+  // [ID] Setiap game mulai dengan kotak tujuan musuh tersembunyi (tombol P untuk menampilkan).
+  $('#board-shell').classList.remove('hints-on'); // every game starts with the enemy's squares hidden
   // [ID] Buat game baru.
   game = new Game({ board, ui, ...cfg });
   // [ID] Tulis mode di atas layar:
@@ -891,10 +475,8 @@ function startAiGame() {
   $('#game-ab').checked = settings.prune;
   // [ID] Label ON/OFF.
   $('#ab-state').textContent = settings.prune ? 'ON' : 'OFF';
-  // The game keeps the point values it started with, even if the admin changes them mid-game.
-  // [ID] Game memakai nilai poin saat dimulai, walaupun admin mengubahnya di tengah game.
-  // [ID] Kedalaman AI diambil dari DIFFICULTY sesuai level.
-  launch({ mode: 'ai', level: settings.diff, players, rules, ai: { depth: DIFFICULTY[settings.diff], prune: settings.prune } });
+  // [ID] Mulai game: mode AI, level, pemain, dan pengaturan AI (kedalaman dari DIFFICULTY, pruning ON/OFF).
+  launch({ mode: 'ai', level: settings.diff, players, ai: { depth: DIFFICULTY[settings.diff], prune: settings.prune } });
 }
 
 // [ID] Mulai game lokal (dua pemain di satu perangkat).
@@ -1038,8 +620,8 @@ function newSession() {
       if (game && game.phase !== 'over') {
         // [ID] hentikan game,
         game.dispose();
-        // [ID] tampilkan layar "lawan keluar" tanpa tombol main lagi,
-        openGameOver({ title: t('netLeft'), sub: '', win: true, winnerSide: game.mySide, moves: game.state.moves, leftOnly: true });
+        // [ID] tampilkan layar game over "Lawan keluar" tanpa tombol Main lagi,
+        openGameOver({ title: t('netLeft'), sub: '', win: true, moves: game.state.moves, leftOnly: true });
       // [ID] layar game over sudah terbuka:
       } else if (!$('#gameover').hidden) {
         // [ID] sembunyikan Main lagi,
@@ -1153,140 +735,6 @@ async function joinRoom(raw) {
   }
 }
 
-// ---- Leaderboard ------------------------------------------------------------
-// [ID] ---- Leaderboard ----
-// [ID] Timer pembaruan otomatis.
-let lbTimer = 0;
-// [ID] Sedang memuat (supaya tidak dua permintaan sekaligus).
-let lbBusy = false;
-
-// [ID] Ubah karakter HTML berbahaya menjadi kode aman (&, <, >, ", ') supaya nama tim tidak bisa menyisipkan HTML.
-const esc = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
-
-// [ID] Mulai pembaruan leaderboard.
-function startLeaderboard() {
-  // [ID] Sudah jalan: selesai.
-  if (lbTimer) return;
-  // [ID] Belum ada isi: "Memuat…".
-  if (!$('#lb-list').children.length) $('#lb-status').textContent = t('lbLoading');
-  // [ID] Muat sekarang.
-  refreshLeaderboard();
-  // [ID] Lalu setiap 15 detik.
-  lbTimer = setInterval(refreshLeaderboard, LEADERBOARD.pollMs);
-}
-// [ID] Hentikan pembaruan.
-function stopLeaderboard() {
-  // [ID] Hentikan timer.
-  clearInterval(lbTimer);
-  // [ID] Tandai berhenti.
-  lbTimer = 0;
-}
-
-// [ID] Tampilkan berapa skor yang masih tersimpan di perangkat.
-function renderPending() {
-  // [ID] Jumlahnya.
-  const n = loadPending().length;
-  // [ID] Sembunyikan kalau nol.
-  $('#lb-pending').hidden = n === 0;
-  // [ID] "n skor tersimpan di perangkat ini…".
-  $('#lb-pending').textContent = n ? t('lbPending', n) : '';
-}
-
-// [ID] Gambar tabel leaderboard.
-function renderLeaderboard(teams) {
-  // [ID] Kunci tim saya (untuk disorot).
-  const me = team ? nameKey(team) : '';
-  // [ID] Isi daftar:
-  $('#lb-list').innerHTML = teams.length
-    // [ID] kalau ada tim:
-    ? teams
-        // [ID] satu baris per tim:
-        .map(
-          // [ID] class "me" untuk tim saya, top1–3 untuk tiga besar,
-          (tm) => `<li class="lb-row${tm.key === me ? ' me' : ''}${tm.rank <= 3 ? ` top${tm.rank}` : ''}">` +
-            // [ID] peringkat dan nama (di-escape),
-            `<span class="lb-rank">${tm.rank}</span><span class="lb-name">${esc(tm.name)}</span>` +
-            // [ID] total poin, jumlah menang, jumlah game.
-            `<b>${Number(tm.total).toLocaleString()}</b><span>${Number(tm.wins)}</span><span>${Number(tm.games)}</span></li>`,
-        )
-        // [ID] gabungkan,
-        .join('')
-    // [ID] kalau kosong: "Belum ada skor".
-    : `<li class="lb-empty">${t('lbEmpty')}</li>`;
-}
-
-// Sends the oldest saved score, one per refresh so the per-IP rate limit is respected.
-// [ID] Kirim satu skor tertunda (yang paling lama) per pembaruan, supaya tidak melanggar batas 1 per 10 detik.
-async function flushPending() {
-  // [ID] Daftar tertunda.
-  const list = loadPending();
-  // [ID] Kosong: tidak ada yang dikirim.
-  if (!list.length) return false;
-  // [ID] Kirim yang pertama.
-  const r = await postScore(list[0]);
-  // [ID] Terlalu cepat atau masih offline: coba lagi nanti.
-  if (r.kind === 'rate' || r.kind === 'offline') return false;
-  // [ID] Selain itu (berhasil, duplikat, atau ditolak), hapus dari daftar.
-  savePending(loadPending().slice(1));
-  // [ID] Tidak berhasil: selesai.
-  if (r.kind !== 'ok') return false;
-  // [ID] Berhasil: "Skor tersimpan berhasil dikirim.".
-  toast(t('pendingSent'));
-  // [ID] Ada yang terkirim.
-  return true;
-}
-
-// [ID] Ambil data leaderboard dari server.
-async function fetchLeaderboard() {
-  // [ID] Coba ambil.
-  try {
-    // [ID] GET /api/leaderboard.
-    const res = await fetch('/api/leaderboard', { cache: 'no-store' });
-    // [ID] Berhasil: kembalikan JSON.
-    if (res.ok) return await res.json();
-  // [ID] Gagal: abaikan.
-  } catch {}
-  // [ID] Tidak ada data.
-  return null;
-}
-
-// [ID] Perbarui layar leaderboard.
-async function refreshLeaderboard() {
-  // [ID] Sedang memuat: jangan dobel.
-  if (lbBusy) return;
-  // [ID] Tandai memuat.
-  lbBusy = true;
-  // [ID] Ikon refresh berputar.
-  $('#lb-refresh').classList.add('spin');
-  // [ID] Ambil data.
-  let data = await fetchLeaderboard();
-  // [ID] Kalau online dan ada skor tertunda yang berhasil dikirim, ambil ulang supaya langsung terlihat.
-  if (data?.ok && (await flushPending())) data = (await fetchLeaderboard()) ?? data;
-  // [ID] Selesai memuat.
-  lbBusy = false;
-  // [ID] Hentikan putaran ikon.
-  $('#lb-refresh').classList.remove('spin');
-  // [ID] Sudah pindah layar: jangan gambar.
-  if (currentScreen !== 'board') return;
-  // [ID] Data sah:
-  if (data?.ok && Array.isArray(data.teams)) {
-    // [ID] titik hijau,
-    $('#lb-dot').className = 'dot ok';
-    // [ID] "Diperbarui <jam>",
-    $('#lb-status').textContent = t('lbUpdated', new Date().toLocaleTimeString(getLang() === 'id' ? 'id-ID' : 'en-GB'));
-    // [ID] gambar tabel.
-    renderLeaderboard(data.teams);
-  // [ID] Gagal:
-  } else {
-    // [ID] titik merah,
-    $('#lb-dot').className = 'dot bad';
-    // [ID] "Leaderboard offline".
-    $('#lb-status').textContent = t('lbOffline');
-  }
-  // [ID] Tampilkan jumlah skor tertunda.
-  renderPending();
-}
-
 // ---- Wiring -----------------------------------------------------------------
 // [ID] ---- Pemasangan event ----
 // [ID] Tandai tombol pilihan yang aktif dalam satu grup (atribut aria-checked).
@@ -1299,12 +747,6 @@ function selectRadio(group, attr, value) {
 function applySettingsToUi() {
   // [ID] Bahasa.
   setLang(settings.lang);
-  // [ID] Suara.
-  setSoundEnabled(settings.sound);
-  // [ID] Saklar suara di Pengaturan.
-  $('#set-sound').checked = settings.sound;
-  // [ID] Ikon suara di layar game.
-  $('#game-sound').classList.toggle('is-off', !settings.sound);
   // [ID] Pilihan bahasa.
   selectRadio($('#lang-seg'), 'data-lang', settings.lang);
   // [ID] Pilihan level.
@@ -1313,12 +755,8 @@ function applySettingsToUi() {
   selectRadio($('#first-seg'), 'data-first', settings.first);
   // [ID] Saklar Alpha-Beta.
   $('#sp-ab').checked = settings.prune;
-  // [ID] Nama tim.
-  $('#sp-team-name').textContent = team || '—';
   // [ID] Bangun ulang Cara Bermain (teksnya ikut bahasa).
   buildHowTo();
-  // [ID] Tampilkan poin per level.
-  renderPointsInfo();
 }
 
 // [ID] Tombol kembali di layar game.
@@ -1341,21 +779,12 @@ async function leaveGame() {
 
 // [ID] Persiapan saat halaman dibuka.
 function init() {
-  // [ID] Buat papan hiasan menu.
-  buildMenuBoard();
   // [ID] Terapkan pengaturan.
   applySettingsToUi();
-  // [ID] Mulai bara latar belakang.
-  startBackgroundEmbers($('#bg-embers'));
   // [ID] Tampilkan menu.
   showScreen('menu');
   // [ID] Riwayat kosong.
   ui.log([]);
-  // [ID] Ambil nilai poin dari server.
-  loadRules();
-
-  // [ID] Aktifkan audio pada sentuhan/klik pertama (aturan browser).
-  document.addEventListener('pointerdown', unlockAudio, { once: true });
 
   // [ID] Satu pengendali klik untuk tombol navigasi:
   document.addEventListener('click', (e) => {
@@ -1363,12 +792,8 @@ function init() {
     const go = e.target.closest('[data-go]');
     // [ID] Kalau ya:
     if (go) {
-      // [ID] bunyi pilih,
-      sfx.select();
       // [ID] pindah layar,
       showScreen(go.dataset.go);
-      // [ID] layar Single Player: ambil nilai poin terbaru,
-      if (go.dataset.go === 'sp') loadRules();
       // [ID] selesai.
       return;
     }
@@ -1386,10 +811,6 @@ function init() {
     settings.diff = b.dataset.diff;
     // [ID] tandai kartu,
     selectRadio($('#diff-grid'), 'data-diff', settings.diff);
-    // [ID] sorot baris tabel poin,
-    renderPointsInfo();
-    // [ID] bunyi,
-    sfx.select();
     // [ID] simpan pengaturan.
     saveSettings();
   });
@@ -1413,17 +834,8 @@ function init() {
     // [ID] simpan pengaturan.
     saveSettings();
   });
-  // [ID] Tombol Mulai: minta nama tim dulu kalau belum ada, lalu mulai game.
-  $('#sp-start').addEventListener('click', async () => {
-    // [ID] (mulai kalau nama tersedia)
-    if (await ensureTeam()) startAiGame();
-  });
-  // [ID] Tombol Ganti nama tim.
-  $('#sp-team-change').addEventListener('click', () => ensureTeam(true));
-  // [ID] Tombol Kirim skor.
-  $('#go-submit').addEventListener('click', submitLastGame);
-  // [ID] Tombol refresh leaderboard.
-  $('#lb-refresh').addEventListener('click', refreshLeaderboard);
+  // [ID] Tombol Mulai di layar Single Player: mulai game lawan AI.
+  $('#sp-start').addEventListener('click', startAiGame);
 
   // [ID] Saklar Alpha-Beta di panel game:
   $('#game-ab').addEventListener('change', (e) => {
@@ -1477,24 +889,6 @@ function init() {
     }
   });
 
-  // [ID] Saklar suara di Pengaturan:
-  $('#set-sound').addEventListener('change', (e) => {
-    // [ID] simpan,
-    settings.sound = e.target.checked;
-    // [ID] terapkan,
-    applySettingsToUi();
-    // [ID] simpan pengaturan.
-    saveSettings();
-  });
-  // [ID] Tombol suara di layar game (bolak-balik ON/OFF):
-  $('#game-sound').addEventListener('click', () => {
-    // [ID] balik nilainya,
-    settings.sound = !settings.sound;
-    // [ID] terapkan,
-    applySettingsToUi();
-    // [ID] simpan.
-    saveSettings();
-  });
   // [ID] Pilih bahasa:
   $('#lang-seg').addEventListener('click', (e) => {
     // [ID] tombol yang diklik,
@@ -1517,6 +911,13 @@ function init() {
   document.addEventListener('keydown', (e) => {
     // [ID] (batal lompat)
     if (e.key === 'Escape' && game?.phase === 'trap') game.undoJump();
+    // [ID] Tombol P biasa (bukan ditahan, tanpa Ctrl/Cmd/Alt).
+    const plainP = (e.key === 'p' || e.key === 'P') && !e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey;
+    // [ID] Hanya di layar game, dan bukan saat mengetik di kolom input:
+    if (plainP && currentScreen === 'game' && !e.target.closest?.('input, textarea, select')) {
+      // [ID] tampilkan/sembunyikan kotak tujuan musuh.
+      $('#board-shell').classList.toggle('hints-on');
+    }
   });
 
   // [ID] Tombol Menu utama di game over:

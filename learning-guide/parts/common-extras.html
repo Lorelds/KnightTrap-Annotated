@@ -1,0 +1,32 @@
+<h2>Tambahan di Luar Proposal: Makan dan Waktu Giliran</h2>
+<p>Dua aturan ini <b>tidak ada di proposal</b>, tetapi ada di game, jadi bisa ditanya saat demo. Bukan bagian dari empat algoritma AI. Versi sekarang juga sudah tidak punya poin, leaderboard, suara, atau animasi; tampilannya dibuat sederhana.</p>
+
+<h3>Makan</h3>
+<p>Aturan (d) di proposal melarang mendarat di kotak lawan. Di kode, mendarat <b>tepat</b> di kotak knight musuh justru <b>memakan</b> musuh, seperti di catur: game langsung selesai, tidak ada jebakan, dan yang makan menang. Bersebelahan dengan musuh tidak berarti apa-apa; game tetap jalan.</p>
+<table class="t">
+  <tr><th>Tempat</th><th>Yang dilakukan</th></tr>
+  <tr><td><code>legalJumps()</code>, <code>canMove()</code></td><td>Kotak musuh dihitung sebagai lompatan legal (cek <code>cells[n] === EMPTY</code>, bukan <code>isOpen</code>).</td></tr>
+  <tr><td><code>isOpen()</code></td><td>Tetap melarang jebakan di kotak yang ada knight-nya.</td></tr>
+  <tr><td><code>validateMove()</code></td><td>Langkah makan sah hanya dengan <code>trap = -1</code>.</td></tr>
+  <tr><td><code>winner()</code></td><td>Dua knight di satu kotak berarti yang sedang jalan baru saja dimakan, jadi lawannya menang.</td></tr>
+  <tr><td><code>Game.handleCell()</code></td><td>Klik di kotak musuh langsung mengakhiri giliran tanpa fase jebakan.</td></tr>
+  <tr><td><code>ai.js</code></td><td><code>generateMoves()</code> membuat langkah makan sebagai <code>pack(j, -1)</code>; <code>orderMoves()</code> memeriksanya paling dulu; <code>ab()</code> dan <code>evaluate()</code> menilai "dimakan" sebagai kalah dan "bisa makan" sebagai menang di ply berikutnya.</td></tr>
+</table>
+{{lines:tests/run.mjs:85:96}}
+<div class="box key"><p><b>Kenapa hanya Oranye yang bisa makan?</b> Setiap lompatan knight selalu pindah warna kotak (terang ↔ gelap). a1 dan g7 berwarna sama. Biru selalu jalan duluan, jadi pada giliran Biru kedua knight sudah melompat sama banyak dan berdiri di warna yang sama; lompatan Biru pasti mendarat di warna lain, jadi tidak mungkin kena Oranye. Pada giliran Oranye, Biru sudah melompat sekali lebih banyak, jadi warnanya berbeda dan lompatan Oranye bisa mendarat di kotak Biru. Akibatnya Biru hanya bisa menang dengan mengurung. Mengubah posisi awal hanya menukar sisi mana yang bisa makan.</p></div>
+
+<h3>Waktu giliran</h3>
+<p>Satu giliran manusia maksimal <code>TURN_SECONDS</code> (15 detik, di <code>config.js</code>) untuk lompat <b>dan</b> jebak sekaligus. Sisa waktu tampil di samping status giliran dan menjadi merah saat tinggal 3 detik.</p>
+{{fn:js/game.js:tickClock}}
+{{fn:js/game.js:timeUp}}
+<ul>
+  <li><b>Waktu habis sebelum lompat:</b> <code>randomMove()</code> memilih langkah acak yang lengkap (lompatan + jebakan). <b>Sudah lompat:</b> lompatanmu tetap, hanya jebakannya yang dipilih acak.</li>
+  <li>Langkah acak dimasukkan lewat <code>handleCell()</code>, sama seperti klik, jadi aturan dan pengiriman online tidak ditulis dua kali.</li>
+  <li><b>Batal lompat tidak mengulang waktu:</b> <code>deadline</code> tidak berubah.</li>
+  <li><b>AI tidak memakai penghitung ini.</b> AI punya batas 4 detik sendiri (bagian Louis).</li>
+  <li><b>Online:</b> perangkat masing-masing pemain bertindak saat waktunya habis. Kalau tamu diam lebih dari <code>TURN_GRACE_MS</code> (1,5 detik) setelah batas, host memainkan langkah acak untuknya.</li>
+  <li>Bagian 6 di <code>tests/run.mjs</code> menguji semua hal di atas dengan batas waktu yang dibuat pendek.</li>
+</ul>
+
+<h3>Petunjuk di papan</h3>
+<p>Kotak yang bisa kamu tuju selalu ditandai titik merah. Kotak yang bisa dituju musuh (di fase jebakan) disembunyikan, dan baru tampil bergaris putus-putus setelah tombol <b>P</b> ditekan. Setiap game baru mulai dengan petunjuk musuh tersembunyi.</p>

@@ -10,14 +10,12 @@ import {
   // [ID] cek pemenang, validasi langkah, ubah state ke/dari objek biasa, status kotak kosong.
   winner, validateMove, serialize, deserialize, EMPTY,
 } from './rules.js';
-// [ID] Pengaturan AI (untuk waktu tunggu minimal).
-import { AI as AICFG } from './config.js';
+// [ID] Konstanta: batas AI, jumlah kotak, lama giliran (TURN_SECONDS), dan tenggang waktu host (TURN_GRACE_MS).
+import { AI as AICFG, SIZE, TURN_SECONDS, TURN_GRACE_MS } from './config.js';
 // [ID] think = minta AI berpikir; cancelThinking = batalkan.
 import { think, cancelThinking } from './ai-client.js';
 // [ID] Langkah acak sebagai cadangan kalau AI gagal.
 import { randomMove } from './ai.js';
-// [ID] Efek suara.
-import { sfx } from './audio.js';
 // [ID] Fungsi terjemahan teks.
 import { t } from './i18n.js';
 // [ID] sleep = tunggu beberapa milidetik.
@@ -27,16 +25,23 @@ import { sleep } from './board.js';
 export class Game {
   /**
    * opts.board   BoardView
-   * opts.ui      { update(game), thinking(on), stats(result), log(history), over(info) }
+   * opts.ui      { update(game), thinking(on), stats(result), log(history), over(info), timer(seconds|null), timeUp() }
    * opts.mode    'ai' | 'local' | 'online'
    * opts.players [{ kind, name, sub }, { kind, name, sub }] indexed by side
    * opts.ai      { depth, prune } when mode === 'ai'
    * opts.net     OnlineSession when mode === 'online'; opts.role 'host' | 'guest'
+   * opts.turnMs  time limit for one turn (defaults to TURN_SECONDS)
    */
   // [ID] Konstruktor: menerima papan, ui, mode, pemain, pengaturan AI, dan koneksi online.
   constructor(opts) {
     // [ID] Salin semua opsi menjadi properti objek ini (this.board, this.ui, this.mode, ...).
     Object.assign(this, opts);
+    // [ID] Lama satu giliran dalam ms; kalau tidak diberikan, pakai TURN_SECONDS x 1000. (??= artinya "isi kalau masih kosong".)
+    this.turnMs ??= TURN_SECONDS * 1000;
+    // [ID] Id interval penghitung waktu (null = tidak jalan).
+    this.clock = null;
+    // [ID] Waktu (performance.now) saat giliran habis.
+    this.deadline = null;
     // [ID] Posisi awal.
     this.state = createState();
     // [ID] Fase giliran: 'idle', 'jump', 'trap', 'ai', 'remote', 'animating', atau 'over'.
@@ -84,6 +89,8 @@ export class Game {
   dispose() {
     // [ID] Tandai sudah ditinggalkan.
     this.disposed = true;
+    // [ID] Hentikan penghitung waktu.
+    this.stopClock();
     // [ID] Batalkan AI yang sedang berpikir.
     cancelThinking();
     // [ID] Lepas handler klik kotak.
@@ -137,7 +144,7 @@ export class Game {
         if (this.mode === 'local') return t('sideWins', this.players[this.winner].name);
         // [ID] Selain itu: "Kamu Menang!" atau "Kamu Kalah".
         return this.mySide === this.winner ? t('youWin') : t('youLose');
-      // [ID] Fase lain (misalnya animasi): tetap pakai teks terakhir.
+      // [ID] Fase lain (misalnya jeda saat langkah dimainkan): tetap pakai teks terakhir.
       default:
         // [ID] Teks terakhir atau kosong.
         return this._lastStatus ?? '';
@@ -156,25 +163,32 @@ export class Game {
     const v = {
       // [ID] state papan,
       state: s,
-      // [ID] siapa yang jalan (null kalau game selesai),
-      turnSide: this.phase === 'over' ? null : side,
       // [ID] kotak pendaratan dan jebakan terakhir,
       lastLand: this.lastLand,
       // [ID] (lanjutan)
       lastTrap: this.lastTrap,
       // [ID] kotak lompatan legal yang ditandai titik,
       legal: [],
+      // [ID] kotak lompatan yang memakan musuh,
+      eating: [],
       // [ID] apakah sedang memilih jebakan,
       trappable: false,
       // [ID] kotak tujuan lawan (ditandai bergaris saat memilih jebakan),
       threats: [],
-      // [ID] knight yang kalah (diberi efek mati),
+      // [ID] knight yang kalah (diberi tanda kalah),
       dead: this.phase === 'over' ? this.loser : null,
+      // [ID] knight yang dimakan (disembunyikan): hanya kalau game selesai dan kedua knight di kotak yang sama,
+      eaten: this.phase === 'over' && s.pos[0] === s.pos[1] ? this.loser : null,
       // [ID] knight yang bisa diklik untuk membatalkan lompatan.
       selectableKnight: null,
     };
-    // [ID] Fase lompat pemain: tampilkan lompatan legal.
-    if (humanTurn && this.phase === 'jump') v.legal = legalJumps(s);
+    // [ID] Giliran manusia di fase lompat:
+    if (humanTurn && this.phase === 'jump') {
+      // [ID] tandai semua lompatan legal,
+      v.legal = legalJumps(s);
+      // [ID] dan tandai yang mendarat di kotak musuh sebagai "makan".
+      v.eating = v.legal.filter((sq) => sq === s.pos[side ^ 1]);
+    }
     // [ID] Fase jebakan pemain:
     if (humanTurn && this.phase === 'trap') {
       // [ID] semua kotak terbuka bisa dijebak,
@@ -216,14 +230,16 @@ export class Game {
     if (p.kind === 'human') {
       // [ID] mulai fase lompat,
       this.phase = 'jump';
-      // [ID] mode lokal: bunyi pergantian giliran,
-      if (this.mode === 'local' && this.history.length) sfx.turn();
+      // [ID] mulai penghitung waktu giliran,
+      this.startClock();
       // [ID] gambar ulang.
       this.refresh();
     // [ID] AI:
     } else if (p.kind === 'ai') {
       // [ID] fase AI,
       this.phase = 'ai';
+      // [ID] AI tidak memakai penghitung waktu giliran (punya batas 4 detik sendiri),
+      this.stopClock();
       // [ID] gambar ulang,
       this.refresh();
       // [ID] minta AI berpikir.
@@ -232,14 +248,117 @@ export class Game {
     } else {
       // [ID] tunggu pesan dari lawan,
       this.phase = 'remote';
+      // [ID] penghitung waktu tetap jalan (host perlu tahu kalau tamu diam terlalu lama),
+      this.startClock();
       // [ID] gambar ulang.
       this.refresh();
     }
   }
 
+  // ---- Turn clock -------------------------------------------------------------
+  // One clock per turn, for the jump and the trap together. The AI has its own limit and no clock.
+
+  // [ID] Mulai penghitung waktu untuk satu giliran.
+  startClock() {
+    // [ID] Hentikan penghitung lama dulu.
+    this.stopClock();
+    // [ID] Hitung kapan waktu habis.
+    this.deadline = performance.now() + this.turnMs;
+    // [ID] Tampilkan sisa detik di layar.
+    this.ui.timer(Math.ceil(this.turnMs / 1000));
+    // [ID] Periksa waktu setiap 100 ms.
+    this.clock = setInterval(() => this.tickClock(), 100);
+  }
+
+  // [ID] Hentikan penghitung waktu.
+  stopClock() {
+    // [ID] Hentikan interval.
+    clearInterval(this.clock);
+    // [ID] Kosongkan id interval.
+    this.clock = null;
+    // [ID] Kosongkan waktu habis.
+    this.deadline = null;
+    // [ID] Sembunyikan tampilan waktu.
+    this.ui.timer(null);
+  }
+
+  // [ID] Dipanggil setiap 100 ms.
+  tickClock() {
+    // [ID] Sisa waktu dalam ms (bisa negatif).
+    const left = this.deadline - performance.now();
+    // [ID] Tampilkan sisa detik (dibulatkan ke atas, minimal 0).
+    this.ui.timer(Math.max(0, Math.ceil(left / 1000)));
+    // [ID] Giliran manusia di perangkat ini:
+    if (this.current.kind === 'human') {
+      // [ID] waktu habis: mainkan langkah acak.
+      if (left <= 0) this.timeUp();
+    // [ID] Giliran lawan online dan kita host: tunggu tambahan TURN_GRACE_MS dulu,
+    } else if (this.role === 'host' && left <= -TURN_GRACE_MS) {
+      // [ID] lalu hentikan penghitung,
+      this.stopClock();
+      // [ID] dan mainkan langkah acak untuk tamu (lewat antrean pesan supaya tidak bertabrakan).
+      this.netQueue = this.netQueue.then(() => this.playForQuietGuest()).catch((err) => console.error(err));
+    }
+  }
+
+  // Time ran out on this device's turn. Goes through handleCell like a click,
+  // so the rules and the online send are not duplicated.
+  // [ID] Waktu giliran habis di perangkat ini.
+  timeUp() {
+    // [ID] Hentikan penghitung.
+    this.stopClock();
+    // [ID] Tampilkan pesan "Waktu habis".
+    this.ui.timeUp();
+    // [ID] State.
+    const s = this.state;
+    // [ID] Fase lompat:
+    if (this.phase === 'jump') {
+      // [ID] ambil langkah acak lengkap (lompatan + jebakan),
+      const { jump, trap } = randomMove(s);
+      // [ID] lompat seperti klik biasa,
+      this.handleCell(jump);
+      // [ID] kalau masih perlu jebakan, pasang jebakan acak.
+      if (this.phase === 'trap') this.handleCell(trap);
+    // [ID] Fase jebakan:
+    } else if (this.phase === 'trap') {
+      // [ID] daftar kotak yang boleh dijebak,
+      const open = [];
+      // [ID] kumpulkan semua kotak terbuka,
+      for (let sq = 0; sq < SIZE; sq++) if (isOpen(s, sq)) open.push(sq);
+      // [ID] pilih satu secara acak seperti klik biasa.
+      this.handleCell(open[Math.floor(Math.random() * open.length)]);
+    }
+  }
+
+  // The guest stayed quiet past its limit and the grace period, so the host plays for it.
+  // [ID] Host memainkan langkah acak untuk tamu yang diam.
+  async playForQuietGuest() {
+    // [ID] Hanya kalau game masih berjalan dan masih menunggu tamu.
+    if (this.disposed || this.phase !== 'remote') return;
+    // [ID] Mainkan langkah acak sebagai langkah tamu.
+    await this.hostPlay(randomMove(this.state));
+  }
+
+  // Host only: play a guest move and tell the guest the result.
+  // [ID] Host: mainkan langkah tamu, lalu kirim hasilnya ke tamu.
+  async hostPlay(move) {
+    // [ID] Siapa yang jalan.
+    const side = this.state.turn;
+    // [ID] Kotak asal.
+    const from = this.state.pos[side];
+    // [ID] Mainkan langkahnya di papan.
+    await this.playMove(move);
+    // [ID] Game ditinggalkan: berhenti.
+    if (this.disposed) return;
+    // [ID] Kirim state terbaru ke tamu.
+    this.broadcast(side, from, move);
+    // [ID] Lanjut ke giliran berikutnya.
+    this.nextTurn();
+  }
+
   // [ID] Giliran AI.
   async runAi() {
-    // [ID] Tampilkan animasi "berpikir".
+    // [ID] Tampilkan tulisan "berpikir".
     this.ui.thinking(true);
     // [ID] Waktu mulai.
     const t0 = performance.now();
@@ -262,7 +381,7 @@ export class Game {
     if (elapsed < AICFG.minUiDelayMs) await sleep(AICFG.minUiDelayMs - elapsed);
     // [ID] Cek lagi setelah menunggu.
     if (this.disposed) return;
-    // [ID] Matikan animasi "berpikir".
+    // [ID] Sembunyikan tulisan "berpikir".
     this.ui.thinking(false);
     // [ID] Langkah dari AI.
     let move = res?.move;
@@ -274,10 +393,10 @@ export class Game {
       move = randomMove(this.state);
     // [ID] Kalau sah:
     } else {
-      // [ID] tampilkan statistik di panel "Otak AI".
+      // [ID] tampilkan statistik di panel "Statistik AI".
       this.ui.stats(res);
     }
-    // [ID] Mainkan langkah AI dengan animasi.
+    // [ID] Mainkan langkah AI.
     await this.playMove(move);
     // [ID] Game ditinggalkan: berhenti.
     if (this.disposed) return;
@@ -285,37 +404,29 @@ export class Game {
     this.nextTurn();
   }
 
-  // Animated full move for the AI or a remote player.
-  // [ID] Mainkan satu langkah lengkap dengan animasi (untuk AI atau lawan online).
+  // Full move for the AI or a remote player. Input stays locked until the trap is placed.
+  // [ID] Mainkan satu langkah lengkap (untuk AI atau lawan online); klik dikunci sampai jebakan terpasang.
   async playMove(move) {
     // [ID] State.
     const s = this.state;
     // [ID] Siapa yang jalan.
     const side = s.turn;
-    // [ID] Fase animasi: klik diabaikan.
+    // [ID] Fase 'animating' (namanya saja): klik diabaikan selama langkah dimainkan.
     this.phase = 'animating';
+    // [ID] Hentikan penghitung waktu giliran.
+    this.stopClock();
     // [ID] Lompat dan bakar kotak asal.
     const from = applyJump(s, move.jump);
     // [ID] Sorot kotak pendaratan.
     this.lastLand = move.jump;
     // [ID] Hapus sorotan jebakan lama.
     this.lastTrap = null;
-    // [ID] Bunyi lompat.
-    sfx.jump();
-    // [ID] Mulai animasi lompatan.
-    const anim = this.board.animateJump(side, from, move.jump);
     // [ID] Gambar ulang.
     this.refresh();
-    // [ID] Efek api di kotak asal.
-    this.board.burn(from);
-    // [ID] Bunyi terbakar.
-    sfx.burn();
-    // [ID] Tunggu animasi selesai.
-    await anim;
-    // [ID] Game ditinggalkan: berhenti.
-    if (this.disposed) return;
     // [ID] Jeda sebentar sebelum jebakan.
     await sleep(160);
+    // [ID] Game ditinggalkan: berhenti.
+    if (this.disposed) return;
     // [ID] Kalau ada jebakan:
     if (move.trap >= 0) {
       // [ID] pasang jebakan,
@@ -324,10 +435,6 @@ export class Game {
       this.lastTrap = move.trap;
       // [ID] gambar ulang,
       this.refresh();
-      // [ID] bunyi jebakan,
-      sfx.trap();
-      // [ID] efek runtuh dan tunggu selesai.
-      await this.board.trap(move.trap);
     }
     // [ID] Ganti giliran.
     endTurn(s);
@@ -335,25 +442,16 @@ export class Game {
     this.record(side, from, move);
   }
 
-  // [ID] Pemain mengklik kotak sq.
-  async handleCell(sq) {
+  // [ID] Klik pada kotak sq (dari papan atau dari timeUp).
+  handleCell(sq) {
     // [ID] Abaikan kalau game ditinggalkan atau bukan giliran manusia.
     if (this.disposed || this.current?.kind !== 'human') return;
     // [ID] State.
     const s = this.state;
-    // [ID] Siapa yang jalan.
-    const side = s.turn;
     // [ID] Fase lompat:
     if (this.phase === 'jump') {
-      // [ID] Kalau kotak itu bukan lompatan legal:
-      if (!legalJumps(s).includes(sq)) {
-        // [ID] bunyi "salah" (kecuali yang diklik knight sendiri), lalu berhenti.
-        if (sq !== s.pos[side]) sfx.invalid();
-        // [ID] (berhenti)
-        return;
-      }
-      // [ID] Fase animasi: klik lain diabaikan.
-      this.phase = 'animating';
+      // [ID] Abaikan klik ke kotak yang bukan lompatan legal.
+      if (!legalJumps(s).includes(sq)) return;
       // [ID] Lompat dan bakar kotak asal.
       const from = applyJump(s, sq);
       // [ID] Simpan kotak asal (untuk tombol batal).
@@ -364,82 +462,39 @@ export class Game {
       this.lastLand = sq;
       // [ID] Hapus sorotan jebakan lama.
       this.lastTrap = null;
-      // [ID] Bunyi lompat.
-      sfx.jump();
-      // [ID] Mulai animasi.
-      const anim = this.board.animateJump(side, from, sq);
-      // [ID] Gambar ulang.
-      this.refresh();
-      // [ID] Efek api di kotak asal.
-      this.board.burn(from);
-      // [ID] Bunyi terbakar.
-      sfx.burn();
-      // [ID] Tunggu animasi.
-      await anim;
-      // [ID] Game ditinggalkan: berhenti.
-      if (this.disposed) return;
-      // [ID] Tidak ada kotak untuk dijebak: langsung akhiri giliran tanpa jebakan.
-      if (!hasOpenSquare(s)) return this.completeHumanMove(-1);
+      // [ID] Langkah makan, atau tidak ada kotak tersisa untuk dijebak: giliran selesai tanpa jebakan (-1).
+      if (sq === s.pos[s.turn ^ 1] || !hasOpenSquare(s)) return this.completeHumanMove(-1);
       // [ID] Lanjut ke fase jebakan.
       this.phase = 'trap';
       // [ID] Gambar ulang (kotak yang bisa dijebak ditampilkan).
       this.refresh();
     // [ID] Fase jebakan:
     } else if (this.phase === 'trap') {
-      // [ID] Kotak harus terbuka.
-      if (!isOpen(s, sq)) {
-        // [ID] Kalau tidak: bunyi "salah".
-        sfx.invalid();
-        // [ID] (berhenti)
-        return;
-      }
-      // [ID] Fase animasi.
-      this.phase = 'animating';
+      // [ID] Abaikan klik ke kotak yang tidak boleh dijebak.
+      if (!isOpen(s, sq)) return;
       // [ID] Pasang jebakan.
       applyTrap(s, sq);
       // [ID] Sorot kotak jebakan.
       this.lastTrap = sq;
-      // [ID] Gambar ulang.
-      this.refresh();
-      // [ID] Bunyi jebakan.
-      sfx.trap();
-      // [ID] Efek runtuh.
-      await this.board.trap(sq);
-      // [ID] Game ditinggalkan: berhenti.
-      if (this.disposed) return;
       // [ID] Akhiri giliran pemain.
       this.completeHumanMove(sq);
     }
   }
 
-  // [ID] Batalkan lompatan (hanya selama fase jebakan).
-  async undoJump() {
+  // [ID] Batalkan lompatan (tombol Batal lompat, klik knight sendiri, atau Esc).
+  undoJump() {
     // [ID] Hanya boleh di fase jebakan dan kalau ada lompatan yang tertunda.
     if (this.phase !== 'trap' || this.pendingFrom == null) return;
     // [ID] State.
     const s = this.state;
     // [ID] Siapa yang jalan.
     const side = s.turn;
-    // [ID] Posisi knight sekarang.
-    const at = s.pos[side];
-    // [ID] Fase animasi.
-    this.phase = 'animating';
     // [ID] Kembalikan knight ke kotak asal.
     s.pos[side] = this.pendingFrom;
     // [ID] Kotak asal tidak jadi terbakar.
     s.cells[this.pendingFrom] = EMPTY;
     // [ID] Hapus sorotan pendaratan.
     this.lastLand = null;
-    // [ID] Animasi knight kembali.
-    const anim = this.board.animateJump(side, at, this.pendingFrom);
-    // [ID] Gambar ulang.
-    this.refresh();
-    // [ID] Bunyi pilih.
-    sfx.select();
-    // [ID] Tunggu animasi.
-    await anim;
-    // [ID] Game ditinggalkan: berhenti.
-    if (this.disposed) return;
     // [ID] Tidak ada lompatan tertunda lagi.
     this.pendingFrom = null;
     // [ID] (lanjutan)
@@ -452,6 +507,8 @@ export class Game {
 
   // [ID] Akhiri giliran pemain manusia dengan jebakan "trap".
   completeHumanMove(trap) {
+    // [ID] Hentikan penghitung waktu.
+    this.stopClock();
     // [ID] State.
     const s = this.state;
     // [ID] Siapa yang jalan.
@@ -481,14 +538,16 @@ export class Game {
 
   // [ID] Simpan langkah di riwayat dan tampilkan.
   record(side, from, move) {
-    // [ID] Tambah ke riwayat.
-    this.history.push({ side, from, jump: move.jump, trap: move.trap });
-    // [ID] Perbarui panel riwayat (dan skor).
+    // [ID] Simpan langkah; ate = true kalau lompatannya mendarat di kotak musuh (makan).
+    this.history.push({ side, from, jump: move.jump, trap: move.trap, ate: move.jump === this.state.pos[side ^ 1] });
+    // [ID] Perbarui panel riwayat.
     this.ui.log(this.history);
   }
 
   // [ID] Akhiri game dengan pemenang w.
   finish(w) {
+    // [ID] Hentikan penghitung waktu.
+    this.stopClock();
     // [ID] Fase selesai.
     this.phase = 'over';
     // [ID] Simpan pemenang.
@@ -497,18 +556,12 @@ export class Game {
     this.loser = w ^ 1;
     // [ID] Gambar ulang.
     this.refresh();
-    // [ID] Efek kembang api di knight pemenang.
-    this.board.victory(w, this.state.pos[w]);
-    // [ID] Sisi pemain di perangkat ini.
-    const me = this.mySide;
-    // [ID] Bunyi menang (mode lokal atau kalau saya menang),
-    if (me == null || me === w) sfx.win();
-    // [ID] bunyi kalah kalau saya kalah.
-    else sfx.lose();
+    // [ID] Apakah game selesai karena makan (dua knight di satu kotak)?
+    const eaten = this.state.pos[0] === this.state.pos[1];
     // [ID] Setelah 0,9 detik, tampilkan layar game over.
     setTimeout(() => {
-      // [ID] Kalau game belum ditinggalkan.
-      if (!this.disposed) this.ui.over({ winner: w, loser: w ^ 1, moves: this.state.moves, game: this });
+      // [ID] Kalau game belum ditinggalkan, tampilkan layar game over (termasuk info dimakan atau terkurung).
+      if (!this.disposed) this.ui.over({ winner: w, loser: w ^ 1, moves: this.state.moves, game: this, eaten });
     }, 900);
   }
 
@@ -523,8 +576,8 @@ export class Game {
 
   // [ID] Pesan masuk dari lawan.
   onNetMessage(msg) {
-    // Handle messages one at a time so an animation never overlaps the next update.
-    // [ID] Proses pesan satu per satu (berantai), supaya animasi tidak bertumpuk.
+    // Handle messages one at a time so a move in progress never overlaps the next update.
+    // [ID] Proses pesan satu per satu (berantai), supaya langkah yang sedang dimainkan tidak bertumpuk dengan pesan berikutnya.
     this.netQueue = this.netQueue.then(() => this.handleNet(msg)).catch((err) => console.error(err));
   }
 
@@ -543,18 +596,8 @@ export class Game {
         // [ID] (berhenti)
         return;
       }
-      // [ID] Siapa yang jalan.
-      const side = this.state.turn;
-      // [ID] Kotak asal.
-      const from = this.state.pos[side];
-      // [ID] Mainkan langkah tamu dengan animasi.
-      await this.playMove(move);
-      // [ID] Game ditinggalkan: berhenti.
-      if (this.disposed) return;
-      // [ID] Kirim state terbaru ke tamu.
-      this.broadcast(side, from, move);
-      // [ID] Lanjut ke giliran berikutnya.
-      this.nextTurn();
+      // [ID] Mainkan langkah tamu dan kirim hasilnya.
+      await this.hostPlay(move);
       // [ID] (selesai)
       return;
     }
@@ -579,9 +622,9 @@ export class Game {
         msg.t === 'state' && last && incoming.moves === this.state.moves + 1 &&
         // [ID] (syarat 4-5: yang melangkah adalah lawan dan kita sedang menunggu)
         this.players[last.side]?.kind === 'remote' && this.phase === 'remote';
-      // [ID] Kalau ya dan langkahnya sah, mainkan dengan animasi.
+      // [ID] Kalau ya dan langkahnya sah, mainkan.
       if (isOpponentMove && validateMove(this.state, last)) {
-        // [ID] Animasi langkah lawan.
+        // [ID] Mainkan langkah lawan.
         await this.playMove(last);
         // [ID] Game ditinggalkan: berhenti.
         if (this.disposed) return;
@@ -589,7 +632,7 @@ export class Game {
       // [ID] Kalau ini hanya pantulan langkah kita sendiri:
       if (incoming.moves === this.state.moves && msg.t === 'state' && !isOpponentMove) {
         // Echo of our own move; adopt the host copy silently.
-        // [ID] pakai salinan host tanpa animasi,
+        // [ID] langsung pakai salinan host,
         this.state = incoming;
         // [ID] gambar ulang kalau tidak sedang memilih langkah,
         if (this.phase !== 'jump' && this.phase !== 'trap') this.refresh();

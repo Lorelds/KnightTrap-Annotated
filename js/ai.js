@@ -45,12 +45,13 @@ function open(cells, pos, sq) {
   return cells[sq] === EMPTY && sq !== pos[0] && sq !== pos[1];
 }
 
+// Jumps available to `side`. The enemy knight's square counts, because landing there eats it.
 // [ID] Mobilitas = jumlah lompatan legal pemain "side".
 function mobility(cells, pos, side) {
   // [ID] Penghitung.
   let n = 0;
-  // [ID] Hitung tetangga L yang terbuka.
-  for (const j of NEIGHBORS[pos[side]]) if (open(cells, pos, j)) n++;
+  // [ID] Hitung tetangga L yang belum terbakar/dijebak. Kotak musuh ikut dihitung karena bisa dimakan.
+  for (const j of NEIGHBORS[pos[side]]) if (cells[j] === EMPTY) n++;
   // [ID] Jumlah lompatan legal.
   return n;
 }
@@ -128,10 +129,19 @@ export function dfs(cells, pos, side, mark) {
 }
 
 // Static evaluation from `me`'s point of view. Positive = good for `me`.
-// [ID] Fungsi evaluasi: nilai posisi dari sudut pandang "me". Positif = menguntungkan "me".
-export function evaluate(s, me) {
+// `ply` is the distance from the root, so a result seen here scores the same as the search reaching it.
+// [ID] Fungsi evaluasi: nilai posisi dari sudut pandang "me". Positif = menguntungkan "me". ply = jarak dari akar pencarian, supaya skor menang/kalah di sini sama dengan kalau pencarian sendiri yang menemukannya.
+export function evaluate(s, me, ply = 0) {
   // [ID] Ambil kotak, posisi knight, dan giliran dari state.
   const { cells, pos, turn } = s;
+  // [ID] sign = +1 kalau yang sedang jalan adalah "me", -1 kalau lawan.
+  const sign = turn === me ? 1 : -1;
+  // The side to move was just eaten, or has no jump: it has lost.
+  // [ID] Yang jalan baru dimakan (dua knight di satu kotak) atau tidak bisa lompat: dia kalah. Nilainya -WIN dari sudut pandangnya, dikurangi ply.
+  if (pos[0] === pos[1] || !hasJump(s, turn)) return -sign * (WIN - ply);
+  // The side to move can eat right now, so it wins on the next ply.
+  // [ID] Yang jalan bisa langsung memakan musuh: dia menang di ply berikutnya, jadi nilainya WIN - ply - 1.
+  if (NEIGHBORS[pos[turn]].includes(pos[turn ^ 1])) return sign * (WIN - ply - 1);
   // [ID] DFS dari knight P1: luas area P1, tanda di markA.
   const areaA = dfs(cells, pos, 0, markA);
   // [ID] DFS dari knight P2: luas area P2, tanda di markB.
@@ -240,7 +250,7 @@ function trapCandidates(s, opp, out) {
   return out;
 }
 
-// A move is packed as jump | (trap + 1) << 6, so trap -1 (no square left) packs to 0.
+// A move is packed as jump | (trap + 1) << 6, so trap -1 (an eating move, or no square left) packs to 0.
 // [ID] Satu langkah dikemas jadi satu angka: 6 bit bawah = kotak lompatan, bit di atasnya = kotak jebakan + 1.
 // [ID] Kemas {jump, trap} menjadi satu angka (trap -1 menjadi 0).
 export const pack = (jump, trap) => jump | ((trap + 1) << 6);
@@ -259,8 +269,15 @@ export function generateMoves(s, side, out = []) {
   const opp = side ^ 1;
   // [ID] Untuk setiap tetangga L dari kotak asal:
   for (const j of NEIGHBORS[from]) {
-    // [ID] Lewati kalau tidak terbuka.
-    if (!open(cells, pos, j)) continue;
+    // [ID] Lewati kotak yang terbakar atau dijebak.
+    if (cells[j] !== EMPTY) continue;
+    // [ID] Kotak ini berisi knight musuh: ini langkah makan.
+    if (j === pos[opp]) {
+      // [ID] Langkah makan tidak punya jebakan (trap = -1), karena game langsung selesai.
+      out.push(pack(j, -1));
+      // [ID] Lanjut ke tetangga berikutnya.
+      continue;
+    }
     // [ID] Sementara: bakar kotak asal (seperti setelah melompat).
     cells[from] = BURNED;
     // [ID] Sementara: pindahkan knight ke j.
@@ -316,17 +333,22 @@ function unmake(s, m, from) {
 
 // [ID] Apakah pemain "side" punya lompatan legal? (versi cepat untuk pencarian)
 function hasJump(s, side) {
-  // [ID] Ya kalau ada tetangga L yang terbuka.
-  for (const n of NEIGHBORS[s.pos[side]]) if (open(s.cells, s.pos, n)) return true;
+  // [ID] Ya kalau ada tetangga L yang belum terbakar/dijebak (termasuk kotak musuh).
+  for (const n of NEIGHBORS[s.pos[side]]) if (s.cells[n] === EMPTY) return true;
   // [ID] Tidak ada.
   return false;
 }
 
-// Best static score first, from the point of view of the side choosing.
-// [ID] Pengurutan langkah: langkah dengan nilai evaluasi statis terbaik diperiksa lebih dulu, supaya Alpha-Beta memangkas lebih banyak.
-function orderMoves(s, moves, aiSide, maximizing) {
+// An eating move first, because it ends the game. After that, best static score first,
+// from the point of view of the side choosing.
+// [ID] Pengurutan langkah: langkah makan paling dulu (game langsung selesai), lalu langkah dengan nilai evaluasi statis terbaik, supaya Alpha-Beta memangkas lebih banyak. Di-export supaya bisa dites.
+export function orderMoves(s, moves, aiSide, maximizing) {
+  // [ID] Kotak knight musuh (target langkah makan).
+  const enemy = s.pos[s.turn ^ 1];
   // [ID] Beri nilai pada setiap langkah.
   const scored = moves.map((m) => {
+    // [ID] 6 bit bawah m = kotak lompatan. Kalau itu kotak musuh: langkah makan, beri nilai paling ekstrem supaya diurutkan pertama.
+    if ((m & 63) === enemy) return { m, v: maximizing ? Infinity : -Infinity };
     // [ID] Coba langkahnya.
     const from = make(s, m);
     // [ID] Nilai posisi hasilnya dari sudut pandang AI.
@@ -379,11 +401,13 @@ export function search(state, opts = {}) {
     if ((nodes & 255) === 0 && now() > deadline) throw ABORT;
     // [ID] Siapa yang jalan di posisi ini.
     const side = s.turn;
+    // [ID] Dua knight di satu kotak: yang jalan baru saja dimakan. Kalau itu AI: kalah, kalau lawan: menang.
+    if (s.pos[0] === s.pos[1]) return side === aiSide ? -(WIN - ply) : WIN - ply;
     // [ID] Posisi akhir: yang jalan tidak bisa melompat. Kalau itu AI: kalah (-WIN), kalau lawan: menang (+WIN).
     // [ID] Dikurangi ply supaya menang lebih cepat bernilai lebih tinggi.
     if (!hasJump(s, side)) return side === aiSide ? -(WIN - ply) : WIN - ply;
-    // [ID] Kedalaman habis: nilai posisi dengan fungsi evaluasi (BFS + DFS).
-    if (d === 0) return evaluate(s, aiSide);
+    // [ID] Kedalaman habis: nilai posisi dengan fungsi evaluasi (BFS + DFS), ply ikut dikirim.
+    if (d === 0) return evaluate(s, aiSide, ply);
     // [ID] Buat semua langkah yang mungkin.
     const moves = generateMoves(s, side);
     // [ID] Simpul MAX kalau giliran AI, MIN kalau giliran lawan.
@@ -542,6 +566,8 @@ export function randomMove(state, rng = Math.random) {
   if (jumps.length === 0) return null;
   // [ID] Pilih lompatan acak.
   const jump = pickRandom(jumps, rng);
+  // [ID] Lompatan acak kebetulan memakan musuh: langsung selesai tanpa jebakan.
+  if (jump === state.pos[state.turn ^ 1]) return { jump, trap: -1 };
   // [ID] Salin state.
   const t = cloneState(state);
   // [ID] Terapkan lompatan di salinan.
@@ -552,9 +578,9 @@ export function randomMove(state, rng = Math.random) {
   return { jump, trap: opens.length ? pickRandom(opens, rng) : -1 };
 }
 
-// Greedy: jump to the square with the most follow-up jumps; trap the opponent's
+// Greedy: eat the enemy if it can. Otherwise jump to the square with the most follow-up jumps; trap the opponent's
 // best follow-up square the same way (random open square if the opponent has none).
-// [ID] Pemain greedy: lompat ke kotak dengan lompatan lanjutan terbanyak; jebak kotak tujuan lawan yang paling berharga.
+// [ID] Pemain greedy: makan musuh kalau bisa; kalau tidak, lompat ke kotak dengan lompatan lanjutan terbanyak dan jebak kotak tujuan lawan yang paling berharga.
 export function greedyMove(state, rng = Math.random) {
   // [ID] Siapa yang jalan.
   const side = state.turn;
@@ -562,6 +588,8 @@ export function greedyMove(state, rng = Math.random) {
   const jumps = legalJumps(state);
   // [ID] Tidak ada lompatan: tidak ada langkah.
   if (jumps.length === 0) return null;
+  // [ID] Kalau bisa memakan musuh, greedy selalu makan.
+  if (jumps.includes(state.pos[side ^ 1])) return { jump: state.pos[side ^ 1], trap: -1 };
   // [ID] Fungsi bantu: pilih elemen dengan skor tertinggi; kalau seri, pilih acak di antaranya.
   const bestBy = (list, scoreFn) => {
     // [ID] Skor terbaik sejauh ini.
@@ -599,8 +627,8 @@ export function greedyMove(state, rng = Math.random) {
   applyJump(t, jump);
   // [ID] Tidak ada kotak tersisa: tanpa jebakan.
   if (!hasOpenSquare(t)) return { jump, trap: -1 };
-  // [ID] Kotak tujuan lompatan lawan.
-  const oppJumps = legalJumps(t, side ^ 1);
+  // [ID] Kotak tujuan lompatan lawan, kecuali kotak knight kita sendiri (jebakan tidak boleh di kotak knight).
+  const oppJumps = legalJumps(t, side ^ 1).filter((sq) => isOpen(t, sq)); // a trap cannot go on our own knight
   // [ID] Kotak jebakan yang akan dipilih.
   let trap;
   // [ID] Kalau lawan masih punya lompatan:

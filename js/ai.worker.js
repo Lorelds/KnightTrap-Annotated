@@ -1,5 +1,5 @@
 // Runs the search off the main thread so the board keeps animating while the AI thinks.
-// [ID] Kode yang berjalan di Web Worker (thread terpisah), supaya papan tetap bisa beranimasi saat AI berpikir.
+// [ID] Kode yang berjalan di Web Worker (thread terpisah), supaya halaman tetap responsif (penghitung waktu dan klik tetap jalan) saat AI berpikir.
 // [ID] deserialize mengubah objek biasa kembali menjadi state.
 import { deserialize } from './rules.js';
 // [ID] search = fungsi Minimax + Alpha-Beta.

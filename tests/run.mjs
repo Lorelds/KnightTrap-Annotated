@@ -2,8 +2,8 @@
 // [ID] Semua pengujian Knight Trap (proposal Bab 2.2), tanpa framework. Jalankan: node tests/run.mjs (tambah --quick untuk 20 game per pasangan).
 // [ID] Pengukur waktu presisi tinggi dari Node.js.
 import { performance } from 'node:perf_hooks';
-// [ID] Kedalaman per level dan pengaturan AI.
-import { DIFFICULTY, AI as AICFG } from '../js/config.js';
+// [ID] Konstanta: kedalaman per level, batas AI, lama giliran, tenggang waktu host.
+import { DIFFICULTY, AI as AICFG, TURN_SECONDS, TURN_GRACE_MS } from '../js/config.js';
 // [ID] Fungsi aturan yang diuji.
 import {
   // [ID] buat/salin state, lompatan legal, lompat, jebak, ganti giliran, langkah lengkap,
@@ -11,8 +11,8 @@ import {
   // [ID] validasi, pemenang, bisa bergerak, kotak terbuka, status kotak, serialisasi.
   validateMove, winner, canMove, isOpen, EMPTY, BURNED, TRAP, serialize, deserialize,
 } from '../js/rules.js';
-// [ID] Fungsi AI: pencarian, pemain acak, pemain greedy, evaluasi, bobot split.
-import { search, randomMove, greedyMove, evaluate, SPLIT_WEIGHT } from '../js/ai.js';
+// [ID] Fungsi AI yang diuji: pencarian, pemain acak/greedy, evaluasi, pembuat langkah, pengurutan, unpack, bobot split, nilai menang.
+import { search, randomMove, greedyMove, evaluate, generateMoves, orderMoves, unpack, SPLIT_WEIGHT, WIN } from '../js/ai.js';
 
 // [ID] Mode cepat kalau ada argumen --quick.
 const QUICK = process.argv.includes('--quick');
@@ -94,8 +94,8 @@ console.log('\n1. Rules');
   // [ID] Giliran pindah ke P2 dan hitungan bertambah.
   check('turn passes', t.turn === 1 && t.moves === 1);
 
-  // Cannot land on burned, trap or occupied squares.
-  // [ID] Tidak boleh mendarat di kotak terbakar, jebakan, atau ditempati.
+  // Cannot land on burned or trap squares. The enemy's square is a legal jump: landing there eats it.
+  // [ID] Tidak boleh mendarat di kotak terbakar atau jebakan. Kotak musuh boleh: mendarat di sana = makan.
   // [ID] Posisi uji: P1 di d4, P2 di e6.
   const u = createState({ p1: sq('d4'), p2: sq('e6'), first: 0 });
   // [ID] b3 terbakar.
@@ -108,27 +108,28 @@ console.log('\n1. Rules');
   check('blocked: burned square', !j.includes(sq('b3')));
   // [ID] c6 tidak boleh.
   check('blocked: trap square', !j.includes(sq('c6')));
-  // [ID] e6 (lawan) tidak boleh.
-  check('blocked: opponent square', !j.includes(sq('e6')));
+  // [ID] Kotak musuh (e6) boleh dituju: mendarat di sana = makan.
+  check('opponent square is a legal jump', j.includes(sq('e6')));
+  // [ID] Tapi kotak musuh tidak boleh dijebak.
+  check('opponent square is not open for a trap', !isOpen(u, sq('e6')));
   // [ID] Kotak terbuka tetap boleh.
   check('open squares still legal', j.includes(sq('f5')) && j.includes(sq('b5')));
 
   // Trap validation.
-  // [ID] Validasi jebakan.
-  // [ID] Langkah sah.
-  check('valid move accepted', validateMove(u, { jump: sq('f5'), trap: sq('a1') }));
+  // [ID] Langkah sah: lompat ke f3, jebak a1.
+  check('valid move accepted', validateMove(u, { jump: sq('f3'), trap: sq('a1') }));
   // [ID] Jebakan di kotak terbakar ditolak.
-  check('trap on burned rejected', !validateMove(u, { jump: sq('f5'), trap: sq('b3') }));
-  // [ID] Jebakan di kotak lawan ditolak.
-  check('trap on opponent rejected', !validateMove(u, { jump: sq('f5'), trap: sq('e6') }));
-  // [ID] Jebakan di kotak sendiri yang baru ditolak.
-  check('trap on own new square rejected', !validateMove(u, { jump: sq('f5'), trap: sq('f5') }));
-  // [ID] Jebakan di kotak asal (baru terbakar) ditolak.
-  check('trap on burned origin rejected', !validateMove(u, { jump: sq('f5'), trap: sq('d4') }));
+  check('trap on burned rejected', !validateMove(u, { jump: sq('f3'), trap: sq('b3') }));
+  // [ID] Jebakan di kotak knight musuh ditolak.
+  check('trap on opponent rejected', !validateMove(u, { jump: sq('f3'), trap: sq('e6') }));
+  // [ID] Jebakan di kotak tempat knight sendiri baru mendarat ditolak.
+  check('trap on own new square rejected', !validateMove(u, { jump: sq('f3'), trap: sq('f3') }));
+  // [ID] Jebakan di kotak asal (sudah terbakar) ditolak.
+  check('trap on burned origin rejected', !validateMove(u, { jump: sq('f3'), trap: sq('d4') }));
   // [ID] Lompatan bukan huruf L ditolak.
   check('illegal jump rejected', !validateMove(u, { jump: sq('d5'), trap: sq('a1') }));
-  // [ID] Melewati jebakan padahal masih ada kotak terbuka ditolak.
-  check('missing trap rejected while squares are open', !validateMove(u, { jump: sq('f5'), trap: -1 }));
+  // [ID] Tidak pasang jebakan padahal masih ada kotak terbuka: ditolak.
+  check('missing trap rejected while squares are open', !validateMove(u, { jump: sq('f3'), trap: -1 }));
   // [ID] Data aneh ditolak.
   check('garbage rejected', !validateMove(u, { jump: 'x', trap: 3 }) && !validateMove(u, null));
 
@@ -146,6 +147,113 @@ console.log('\n1. Rules');
   v.turn = 1;
   // [ID] P2 masih bisa bergerak → belum ada pemenang.
   check('other side still alive', winner(v) === null);
+
+  // Eating: landing exactly on the enemy's square wins at once, with no trap.
+  // [ID] Makan oleh Biru: P1 di a1, P2 di c2 (c2 bisa dicapai dari a1).
+  const eatBlue = createState({ p1: sq('a1'), p2: sq('c2'), first: 0 });
+  // [ID] Makan tanpa jebakan: sah.
+  check('blue eats: no trap is valid', validateMove(eatBlue, { jump: sq('c2'), trap: -1 }));
+  // [ID] Makan dengan jebakan: ditolak.
+  check('blue eats: a real trap is rejected', !validateMove(eatBlue, { jump: sq('c2'), trap: sq('a7') }));
+  // [ID] Mainkan langkah makan.
+  applyMove(eatBlue, { jump: sq('c2'), trap: -1 });
+  // [ID] Biru menang.
+  check('blue eats: blue wins', winner(eatBlue) === 0);
+  // [ID] Kedua knight sekarang di kotak yang sama.
+  check('blue eats: both knights share the square', eatBlue.pos[0] === sq('c2') && eatBlue.pos[1] === sq('c2'));
+
+  // [ID] Makan oleh Oranye: P1 di e6, P2 di g7, Oranye jalan duluan.
+  const eatOrange = createState({ p1: sq('e6'), p2: sq('g7'), first: 1 });
+  // [ID] Makan tanpa jebakan: sah.
+  check('orange eats: no trap is valid', validateMove(eatOrange, { jump: sq('e6'), trap: -1 }));
+  // [ID] Mainkan langkah makan.
+  applyMove(eatOrange, { jump: sq('e6'), trap: -1 });
+  // [ID] Oranye menang.
+  check('orange eats: orange wins', winner(eatOrange) === 1);
+
+  // Touching the enemy no longer eats it: a1 -> c2 lands next to c3, and the game goes on.
+  // [ID] Bersebelahan dengan musuh: P1 di a1, P2 di c3.
+  const near = createState({ p1: sq('a1'), p2: sq('c3'), first: 0 });
+  // [ID] Lompat ke c2 (di sebelah musuh) tetap harus pasang jebakan.
+  check('touching: a jump next to the enemy still needs a trap', !validateMove(near, { jump: sq('c2'), trap: -1 }));
+  // [ID] Dengan jebakan: sah.
+  check('touching: the trap is accepted', validateMove(near, { jump: sq('c2'), trap: sq('a7') }));
+  // [ID] Mainkan.
+  applyMove(near, { jump: sq('c2'), trap: sq('a7') });
+  // [ID] Tidak ada pemenang, kedua knight di kotak berbeda.
+  check('touching: no winner', winner(near) === null && near.pos[0] !== near.pos[1]);
+
+  // A trap can never go on either knight, even when the enemy could eat there next turn.
+  // [ID] Posisi uji: P1 di a1, P2 di d4.
+  const occ = createState({ p1: sq('a1'), p2: sq('d4'), first: 0 });
+  // [ID] Jebakan di kotak knight musuh ditolak.
+  check('trap on the enemy knight rejected', !validateMove(occ, { jump: sq('b3'), trap: sq('d4') }));
+  // [ID] Jebakan di kotak knight yang baru melompat ditolak.
+  check('trap on the jumping knight rejected', !validateMove(occ, { jump: sq('b3'), trap: sq('b3') }));
+
+  // Eating is a legal move, so a knight whose only jump eats is not stuck.
+  // [ID] P1 di a1, P2 di c2.
+  const only = createState({ p1: sq('a1'), p2: sq('c2'), first: 0 });
+  // [ID] Bakar b3, jadi satu-satunya lompatan P1 adalah makan di c2.
+  only.cells[sq('b3')] = BURNED;
+  // [ID] P1 masih hidup (bisa bergerak) dan belum ada pemenang.
+  check('only jump eats: the side to move is alive', canMove(only) && winner(only) === null);
+
+  // [ID] Lompatan biasa (bukan makan) tanpa jebakan ditolak.
+  check('no trap rejected when the jump does not eat', !validateMove(createState(), { jump: sq('b3'), trap: -1 }));
+
+  // [ID] AI kedalaman 1 dengan kesempatan makan.
+  const eatAi = search(createState({ p1: sq('a1'), p2: sq('c2'), first: 0 }), { depth: 1 });
+  // [ID] AI harus makan di c2 tanpa jebakan, dengan skor WIN - 1.
+  check('AI eats at depth 1', eatAi.move.trap === -1 && eatAi.move.jump === sq('c2') && eatAi.score === WIN - 1, JSON.stringify(eatAi.move));
+
+  // Evaluation knows eating, with scores that match WIN - ply from the search.
+  // [ID] Posisi: Biru (yang jalan) bisa makan Oranye.
+  const canEat = createState({ p1: sq('a1'), p2: sq('c2'), first: 0 });
+  // [ID] Dari sudut pandang Biru: WIN - 1; dari sudut pandang Oranye: -(WIN - 1).
+  check('eval: side to move can eat, it wins on the next ply', evaluate(canEat, 0) === WIN - 1 && evaluate(canEat, 1) === -(WIN - 1));
+  // [ID] Dengan ply = 3, skornya WIN - 4 (sama seperti hasil pencarian).
+  check('eval: the score counts the ply', evaluate(canEat, 0, 3) === WIN - 4 && evaluate(canEat, 1, 3) === -(WIN - 4));
+  // [ID] Posisi awal,
+  const stuck = createState();
+  // [ID] tutup b3,
+  stuck.cells[sq('b3')] = TRAP;
+  // [ID] tutup c2: Biru tidak bisa melompat.
+  stuck.cells[sq('c2')] = BURNED;
+  // [ID] Biru sudah kalah: -(WIN - 2) untuk Biru, WIN - 2 untuk Oranye (ply = 2).
+  check('eval: side to move has no jump, it has lost', evaluate(stuck, 0, 2) === -(WIN - 2) && evaluate(stuck, 1, 2) === WIN - 2);
+  // [ID] Kedua knight di c2, giliran Oranye: Oranye baru saja dimakan.
+  const ate = createState({ p1: sq('c2'), p2: sq('c2'), first: 1 });
+  // [ID] Oranye sudah kalah: -(WIN - 1) untuk Oranye, WIN - 1 untuk Biru.
+  check('eval: side to move was eaten, it has lost', evaluate(ate, 1, 1) === -(WIN - 1) && evaluate(ate, 0, 1) === WIN - 1);
+
+  // From a5 orange can reach b3 but not c2, so even depth 1 must take the safe jump.
+  // [ID] P1 di a1, P2 di a5: Oranye bisa mencapai b3 tapi tidak c2.
+  const safe = search(createState({ p1: sq('a1'), p2: sq('a5'), first: 0 }), { depth: 1 });
+  // [ID] AI kedalaman 1 harus memilih c2 (aman), dan skornya bukan skor menang/kalah.
+  check('AI at depth 1 avoids a square the enemy can eat', safe.move.jump === sq('c2') && Math.abs(safe.score) < WIN / 2, JSON.stringify(safe.move));
+  // From d4 orange can reach both b3 and c2: depth 1 and depth 2 must both report the same forced loss.
+  // [ID] P1 di a1, P2 di d4: Oranye bisa mencapai b3 dan c2.
+  const doomed = createState({ p1: sq('a1'), p2: sq('d4'), first: 0 });
+  // [ID] Cari dengan kedalaman 1.
+  const d1 = search(doomed, { depth: 1 });
+  // [ID] Cari dengan kedalaman 2.
+  const d2 = search(doomed, { depth: 2 });
+  // [ID] Keduanya harus melaporkan kekalahan pasti yang sama: -(WIN - 2).
+  check('forced loss: depth 1 and 2 agree on the score', d1.score === -(WIN - 2) && d2.score === -(WIN - 2), `${d1.score} ${d2.score}`);
+
+  // Move ordering puts the eating move first for both the maximizing and the minimizing side.
+  // [ID] Untuk sisi yang memaksimalkan dan yang meminimalkan:
+  for (const maximizing of [true, false]) {
+    // [ID] posisi dengan kesempatan makan,
+    const o = createState({ p1: sq('a1'), p2: sq('c2'), first: 0 });
+    // [ID] buat semua langkah Biru,
+    const ms = generateMoves(o, 0);
+    // [ID] urutkan,
+    orderMoves(o, ms, maximizing ? 0 : 1, maximizing);
+    // [ID] langkah pertama harus langkah makan (c2, tanpa jebakan).
+    check(`move ordering: eating first (maximizing ${maximizing})`, unpack(ms[0]).jump === sq('c2') && unpack(ms[0]).trap === -1);
+  }
 
   // Trap skipped only when nothing is open.
   // [ID] Jebakan boleh dilewati hanya kalau tidak ada kotak terbuka.
@@ -217,8 +325,8 @@ const positions = [];
     let ok = true;
     // [ID] Mainkan giliran acak.
     for (let i = 0; i < turns; i++) {
-      // [ID] Langkah acak.
-      const m = randomMove(s, rng);
+      // [ID] Langkah acak, tapi berhenti kalau game sudah selesai (misalnya karena makan).
+      const m = winner(s) === null ? randomMove(s, rng) : null;
       // [ID] Tidak ada langkah (game selesai terlalu cepat): batal.
       if (!m) { ok = false; break; }
       // [ID] Terapkan.
@@ -361,18 +469,14 @@ console.log('\n5. Online host validation (real Game class, stubbed board and net
 {
   // [ID] Muat kelas Game.
   const { Game } = await import('../js/game.js');
-  // [ID] Muat pengatur suara.
-  const { setSoundEnabled } = await import('../js/audio.js');
-  // [ID] Matikan suara (Node tidak punya audio).
-  setSoundEnabled(false);
   // [ID] Pesan yang dikirim host.
   const sent = [];
   // [ID] Fungsi kosong.
   const noop = () => {};
-  // [ID] Papan tiruan tanpa tampilan.
-  const board = { render: noop, animateJump: async () => {}, burn: noop, trap: async () => {}, victory: noop };
-  // [ID] UI tiruan.
-  const ui = { update: noop, thinking: noop, stats: noop, log: noop, over: noop };
+  // [ID] Papan tiruan (render tidak melakukan apa-apa).
+  const board = { render: noop };
+  // [ID] UI tiruan: semua fungsi kosong, termasuk timer dan timeUp.
+  const ui = { update: noop, thinking: noop, stats: noop, log: noop, over: noop, timer: noop, timeUp: noop };
   // [ID] Game sebagai host online:
   const g = new Game({
     // [ID] papan, ui, mode online, peran host, jaringan tiruan yang mencatat pesan,
@@ -382,7 +486,7 @@ console.log('\n5. Online host validation (real Game class, stubbed board and net
   });
   // [ID] Mulai.
   g.start(createState());
-  // [ID] Tunggu antrian pesan selesai diproses (plus jeda animasi).
+  // [ID] Tunggu antrian pesan selesai diproses (plus jeda tampilan).
   const flush = () => g.netQueue.then(() => new Promise((r) => setTimeout(r, 400)));
 
   // Guest tries to move on the host's turn.
@@ -436,455 +540,367 @@ console.log('\n5. Online host validation (real Game class, stubbed board and net
   check('legal guest move accepted and broadcast', g.state.moves === 2 && sent[0]?.t === 'state' && g.phase === 'jump');
   // [ID] Selesai.
   g.dispose();
+
+  // The guest eats the host: no trap, the host accepts it, and the game ends.
+  // [ID] Kosongkan catatan pesan.
+  sent.length = 0;
+  // [ID] Game host baru untuk uji makan:
+  const e = new Game({
+    // [ID] papan, ui, mode online, peran host, jaringan tiruan yang mencatat pesan,
+    board, ui, mode: 'online', role: 'host', net: { send: (m) => sent.push(m) },
+    // [ID] host = manusia di sisi 0, tamu = remote di sisi 1.
+    players: [{ kind: 'human', name: 'host' }, { kind: 'remote', name: 'guest' }],
+  });
+  // [ID] Mulai dari P1 di e6, P2 di g7, giliran tamu (Oranye).
+  e.start(createState({ p1: sq('e6'), p2: sq('g7'), first: 1 }));
+  // [ID] Tamu memakan host di e6, tanpa jebakan.
+  e.onNetMessage({ t: 'move', jump: sq('e6'), trap: -1 });
+  // [ID] Tunggu pesan diproses.
+  await e.netQueue;
+  // [ID] Game selesai, tamu (sisi 1) menang, dan state dikirim ke tamu.
+  check('guest eating move accepted, game over and state sent', e.phase === 'over' && e.winner === 1 && sent[0]?.t === 'state', JSON.stringify(sent[0]?.t));
+  // [ID] Selesai.
+  e.dispose();
 }
 
 // ---------------------------------------------------------------------------
-// [ID] ---- Bagian 6: Poin dan leaderboard (scoring.js, server, handler /api dengan Redis tiruan) ----
-console.log('\n6. Points and leaderboard (scoring.js, server replay and /api handlers with a mock Redis)');
+// [ID] ---- Bagian 6: Penghitung waktu giliran (Game asli, waktu dibuat pendek) ----
+console.log('\n6. Turn timer (real Game class, stubbed board and network, short time limit)');
 {
-  // [ID] Poin default.
-  const { SCORING } = await import('../js/config.js');
-  // [ID] Fungsi poin.
-  const { scoreGame, pointsEnabled, cleanName, validName, normalizeRules, defaultRules, levelValues } = await import('../js/scoring.js');
-  // [ID] Logika server.
-  const { submitScore, readLeaderboard, updateRules, getRules } = await import('../api/_lib/leaderboard.js');
-  // [ID] Pemasang Redis tiruan.
-  const { setRedis } = await import('../api/_lib/redis.js');
-
-  // Finished games from seeded random play: one P1 wins, one P1 loses.
-  // [ID] Buat dua game selesai dari permainan acak ber-seed: satu P1 menang, satu P1 kalah.
-  const playOut = (seed) => {
-    // [ID] Angka acak.
-    const rng = mulberry32(seed);
-    // [ID] Posisi awal.
-    const s = createState();
-    // [ID] Daftar langkah.
-    const moves = [];
-    // [ID] Main sampai selesai.
-    while (winner(s) === null) {
-      // [ID] Langkah acak.
-      const m = randomMove(s, rng);
-      // [ID] Simpan.
-      moves.push(m);
-      // [ID] Terapkan.
-      applyMove(s, m);
-    }
-    // [ID] Langkah dan pemenang.
-    return { moves, w: winner(s) };
+  // [ID] Muat kelas Game.
+  const { Game } = await import('../js/game.js');
+  // [ID] Papan tiruan.
+  const board = { render: () => {} };
+  // [ID] Tunggu ms milidetik.
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  // [ID] Tunggu sampai cond benar, maksimal ms milidetik.
+  const waitFor = async (cond, ms = 4000) => {
+    // [ID] Waktu mulai.
+    const t0 = performance.now();
+    // [ID] Cek setiap 10 ms.
+    while (!cond() && performance.now() - t0 < ms) await sleep(10);
+    // [ID] Hasil akhir: benar atau tidak.
+    return cond();
   };
-  // [ID] Game di mana P1 menang.
-  let winGame = null;
-  // [ID] Game di mana P1 kalah.
-  let lossGame = null;
-  // [ID] Coba seed berurutan sampai dapat keduanya.
-  for (let seed = BASE_SEED; !(winGame && lossGame); seed++) {
-    // [ID] Mainkan.
-    const g = playOut(seed);
-    // [ID] P1 menang: simpan kalau belum ada.
-    if (g.w === 0) winGame ??= g.moves;
-    // [ID] P1 kalah: simpan kalau belum ada.
-    else lossGame ??= g.moves;
+  // [ID] Buat UI tiruan yang mencatat tampilan waktu.
+  const makeUi = () => {
+    // [ID] Fungsi kosong, plus daftar angka waktu yang ditampilkan dan jumlah pesan waktu habis.
+    const u = { update() {}, thinking() {}, stats() {}, log() {}, over() {}, shown: [], timeUps: 0 };
+    // [ID] Catat setiap angka waktu.
+    u.timer = (s) => u.shown.push(s);
+    // [ID] Hitung pesan waktu habis.
+    u.timeUp = () => { u.timeUps++; };
+    // [ID] Kembalikan UI tiruan.
+    return u;
+  };
+  // [ID] Dua pemain manusia (mode lokal).
+  const humans = [{ kind: 'human', name: 'p1' }, { kind: 'human', name: 'p2' }];
+  // [ID] Buat game lokal dengan batas waktu turnMs.
+  const local = (ui, turnMs) => new Game({ board, ui, mode: 'local', players: humans, turnMs });
+
+  // The default comes from the config, and the display starts there.
+  // [ID] Uji: batas default.
+  {
+    // [ID] UI tiruan.
+    const ui = makeUi();
+    // [ID] Game lokal tanpa turnMs (pakai default).
+    const g = new Game({ board, ui, mode: 'local', players: humans });
+    // [ID] Mulai.
+    g.start(createState());
+    // [ID] Batasnya TURN_SECONDS x 1000, dan tampilan awal menunjukkan TURN_SECONDS.
+    check('timer: the default limit is TURN_SECONDS', g.turnMs === TURN_SECONDS * 1000 && ui.shown.at(-1) === TURN_SECONDS, String(ui.shown.at(-1)));
+    // [ID] Selesai.
+    g.dispose();
   }
 
-  // [ID] Untuk setiap level dan pengalinya:
-  for (const [level, mult] of Object.entries(SCORING.multiplier)) {
-    // [ID] skor game kalah,
-    const l = scoreGame(lossGame, { level, humanSide: 0 });
-    // [ID] poin per langkah = 10 x pengali,
-    check(`${level}: ${SCORING.move * mult} points per move`, l.humanMoves > 0 && l.movePoints === l.humanMoves * SCORING.move * mult);
-    // [ID] kalah tetap dapat poin langkah, tanpa bonus,
-    check(`${level}: loss keeps move points, no win bonus`, l.finished && !l.won && l.winPoints === 0 && l.total === l.movePoints);
-    // [ID] skor game menang,
-    const w = scoreGame(winGame, { level, humanSide: 0 });
-    // [ID] bonus menang = 200 x pengali,
-    check(`${level}: win bonus ${SCORING.win * mult}`, w.won && w.winPoints === SCORING.win * mult);
-    // [ID] total = (langkah x 10 + 200) x pengali,
-    check(`${level}: total = moves + win`, w.total === w.movePoints + w.winPoints && w.total === (w.humanMoves * SCORING.move + SCORING.win) * mult);
-    // [ID] jumlah poin per langkah = total poin langkah.
-    check(`${level}: per-move points add up to the move points`, w.steps.reduce((a, b) => a + b, 0) === w.movePoints && w.steps.length === winGame.length);
+  // Jump phase: a whole legal move is played and the turn passes.
+  // [ID] Uji: waktu habis di fase lompat.
+  {
+    // [ID] UI tiruan.
+    const ui = makeUi();
+    // [ID] Batas 100 ms.
+    const g = local(ui, 100);
+    // [ID] Mulai.
+    g.start(createState());
+    // [ID] Tunggu sampai ada langkah tercatat.
+    await waitFor(() => g.history.length >= 1);
+    // [ID] Langkah pertama.
+    const h = g.history[0];
+    // [ID] Giliran sekarang.
+    const turn = g.state.turn;
+    // [ID] Selesai.
+    g.dispose();
+    // [ID] Langkah acak itu harus sah.
+    check('time out while jumping: a legal move is played', !!h && validateMove(createState(), { jump: h.jump, trap: h.trap }), JSON.stringify(h));
+    // [ID] Giliran pindah ke P2 dan pesan waktu habis muncul sekali.
+    check('time out while jumping: the turn passes', turn === 1 && ui.timeUps === 1, `${turn} ${ui.timeUps}`);
   }
-  // [ID] Poin per langkah di level Easy.
-  const steps = scoreGame(winGame, { level: 'easy', humanSide: 0 }).steps;
-  // [ID] Langkah pemain (indeks genap) = 10, langkah lawan = 0.
-  check('every human move earns the same points, AI moves earn none', steps.every((p, i) => p === (i % 2 === 0 ? SCORING.move : 0)));
-  // [ID] Total game menang di Easy.
-  const easy = scoreGame(winGame, { level: 'easy', humanSide: 0 }).total;
-  // [ID] Game yang sama di Expert = 2,5 x Easy.
-  check('same game scores x2.5 on Expert vs Easy', scoreGame(winGame, { level: 'expert', humanSide: 0 }).total === 2.5 * easy);
-  // [ID] Pengali sesuai permintaan: 1, 1.5, 2, 2.5.
-  check('multipliers are 1, 1.5, 2, 2.5', JSON.stringify(SCORING.multiplier) === JSON.stringify({ easy: 1, medium: 1.5, hard: 2, expert: 2.5 }));
-  // [ID] Skor satu langkah dengan jebakan di tempat berbeda.
-  const traps = [sq('f5'), sq('d4')].map((tr) => scoreGame([{ jump: sq('b3'), trap: tr }], { level: 'easy', humanSide: 0 }).total);
-  // [ID] Letak jebakan tidak mempengaruhi poin.
-  check('where the trap goes does not change the points', traps[0] === SCORING.move && traps[1] === SCORING.move);
 
-  // [ID] Mode lokal tidak memberi poin.
-  check('Local mode gives no points', !pointsEnabled('local') && scoreGame(winGame, { mode: 'local', level: 'expert', humanSide: 0 }).total === 0);
-  // [ID] Mode online tidak memberi poin.
-  check('Online mode gives no points', !pointsEnabled('online') && scoreGame(winGame, { mode: 'online', level: 'expert', humanSide: 0 }).total === 0);
-  // [ID] Single Player memberi poin.
-  check('Single Player gives points', pointsEnabled('ai'));
+  // Trap phase: the player's own jump stays and a trap goes on an open square.
+  // [ID] Uji: waktu habis di fase jebakan.
+  {
+    // [ID] UI tiruan.
+    const ui = makeUi();
+    // [ID] Batas 100 ms.
+    const g = local(ui, 100);
+    // [ID] Mulai.
+    g.start(createState());
+    // [ID] Pemain sudah lompat ke c2.
+    g.handleCell(sq('c2'));
+    // [ID] Tunggu sampai langkah tercatat.
+    await waitFor(() => g.history.length >= 1);
+    // [ID] Langkah pertama.
+    const h = g.history[0];
+    // [ID] Posisi knight P1.
+    const pos = g.state.pos[0];
+    // [ID] Isi kotak jebakannya.
+    const cell = h ? g.state.cells[h.trap] : -1;
+    // [ID] Selesai.
+    g.dispose();
+    // [ID] Lompatan pemain (c2) tetap dipakai.
+    check('time out while placing a trap: the jump is kept', !!h && h.jump === sq('c2') && pos === sq('c2'), JSON.stringify(h));
+    // [ID] Jebakan acak terpasang di kotak terbuka (bukan c2, bukan g7).
+    check('time out while placing a trap: a trap is placed', cell === TRAP && h.trap !== sq('c2') && h.trap !== sq('g7'), JSON.stringify(h));
+  }
 
-  // [ID] Bersihkan nama yang berisi HTML.
-  const cleaned = cleanName('  <script>Tim   A</script> ');
-  // [ID] Karakter HTML hilang dan spasi dirapikan.
-  check('name markup stripped', !/[<>&"']/.test(cleaned) && cleaned === 'scriptTim A/script', cleaned);
-  // [ID] Batas panjang nama 2..20.
-  check('name length 2..20', !validName('A') && validName('AB') && validName('x'.repeat(20)) && !validName('x'.repeat(21)));
+  // Undoing a jump keeps the time already used.
+  // [ID] Uji: batal lompat tidak mengembalikan waktu.
+  {
+    // [ID] UI tiruan.
+    const ui = makeUi();
+    // [ID] Batas 400 ms.
+    const g = local(ui, 400);
+    // [ID] Waktu mulai.
+    const t0 = performance.now();
+    // [ID] Mulai.
+    g.start(createState());
+    // [ID] Simpan waktu habis.
+    const deadline = g.deadline;
+    // [ID] Tunggu 300 ms.
+    await sleep(300);
+    // [ID] Lompat ke c2,
+    g.handleCell(sq('c2'));
+    // [ID] lalu batalkan.
+    g.undoJump();
+    // [ID] Kembali ke fase lompat dan waktu habis tidak berubah.
+    check('undo jump: the deadline does not move', g.phase === 'jump' && g.deadline === deadline);
+    // [ID] Tunggu sampai langkah acak dimainkan.
+    await waitFor(() => g.history.length >= 1);
+    // [ID] Lama dari mulai sampai langkah acak.
+    const took = performance.now() - t0;
+    // [ID] Selesai.
+    g.dispose();
+    // [ID] Harus tetap sekitar 400 ms (di bawah 650 ms), bukan diulang dari nol.
+    check('undo jump: time still runs out on schedule', took < 650, `${took.toFixed(0)} ms`);
+  }
 
-  // In-memory stand-in for the Upstash client: same method names and return shapes.
-  // [ID] Redis tiruan di memori: nama fungsi dan bentuk hasilnya sama dengan Upstash.
-  const mockRedis = () => {
-    // [ID] Kunci biasa.
-    const kv = new Map();
-    // [ID] Sorted set.
-    const zsets = new Map();
-    // [ID] Hash.
-    const hashes = new Map();
-    // [ID] Ambil (atau buat) sorted set.
-    const zset = (k) => zsets.get(k) ?? zsets.set(k, new Map()).get(k);
-    // [ID] Ambil (atau buat) hash.
-    const hash = (k) => hashes.get(k) ?? hashes.set(k, new Map()).get(k);
-    // [ID] Perintah-perintah Redis:
-    const ops = {
-      // [ID] SET dengan opsi nx (hanya kalau belum ada):
-      async set(k, v, o = {}) {
-        // [ID] sudah ada dan nx: gagal (null),
-        if (o.nx && kv.has(k)) return null;
-        // [ID] simpan,
-        kv.set(k, String(v));
-        // [ID] berhasil.
-        return 'OK';
-      },
-      // [ID] ZINCRBY: tambah skor anggota sorted set:
-      async zincrby(k, inc, m) {
-        // [ID] sorted set,
-        const z = zset(k);
-        // [ID] tambah,
-        z.set(m, (z.get(m) ?? 0) + inc);
-        // [ID] skor baru.
-        return z.get(m);
-      },
-      // [ID] ZCOUNT: hitung anggota dengan skor di atas batas:
-      async zcount(k, min) {
-        // [ID] "(" berarti lebih besar (bukan sama dengan),
-        const excl = String(min).startsWith('(');
-        // [ID] angka batasnya,
-        const lo = Number(String(min).replace('(', ''));
-        // [ID] hitung.
-        return [...zset(k).values()].filter((v) => (excl ? v > lo : v >= lo)).length;
-      },
-      // [ID] ZRANGE: ambil anggota urut skor:
-      async zrange(k, a, b, o = {}) {
-        // [ID] urutkan (besar dulu kalau rev), ambil posisi a..b,
-        const rows = [...zset(k).entries()].sort((x, y) => (o.rev ? y[1] - x[1] : x[1] - y[1])).slice(a, b + 1);
-        // [ID] dengan skor: [anggota, skor, anggota, skor, ...].
-        return o.withScores ? rows.flat() : rows.map((r) => r[0]);
-      },
-      // [ID] HINCRBY: tambah angka di hash:
-      async hincrby(k, f, n) {
-        // [ID] hash,
-        const h = hash(k);
-        // [ID] tambah,
-        h.set(f, String(Number(h.get(f) ?? 0) + n));
-        // [ID] nilai baru.
-        return Number(h.get(f));
-      },
-      // [ID] HSETNX: set di hash hanya kalau belum ada:
-      async hsetnx(k, f, v) {
-        // [ID] hash,
-        const h = hash(k);
-        // [ID] sudah ada: 0,
-        if (h.has(f)) return 0;
-        // [ID] simpan,
-        h.set(f, String(v));
-        // [ID] berhasil: 1.
-        return 1;
-      },
-      // [ID] GET:
-      async get(k) {
-        // [ID] nilai atau null.
-        return kv.get(k) ?? null;
-      },
-      // [ID] DEL:
-      async del(k) {
-        // [ID] 1 kalau terhapus.
-        return kv.delete(k) ? 1 : 0;
-      },
-      // [ID] INCR: tambah 1:
-      async incr(k) {
-        // [ID] tambah,
-        kv.set(k, String(Number(kv.get(k) ?? 0) + 1));
-        // [ID] nilai baru.
-        return Number(kv.get(k));
-      },
-      // [ID] EXPIRE: diabaikan di tiruan.
-      async expire() {
-        // [ID] (selalu berhasil)
-        return 1;
-      },
-      // [ID] HMGET: ambil beberapa field hash sekaligus:
-      async hmget(k, ...fields) {
-        // [ID] hash,
-        const h = hashes.get(k);
-        // [ID] objek field → nilai, atau null kalau hash tidak ada.
-        return h ? Object.fromEntries(fields.map((f) => [f, h.get(f) ?? null])) : null;
-      },
-    };
-    // [ID] Tiruan multi()/pipeline(): mencatat perintah berantai, lalu exec() menjalankan semuanya.
-    const batch = () => {
-      // [ID] Perintah yang dicatat.
-      const queue = [];
-      // [ID] Proxy: setiap nama fungsi mencatat perintah; "exec" menjalankan antrian.
-      const chain = new Proxy({}, {
-        // [ID] Saat properti diakses:
-        get: (_, op) => op === 'exec'
-          // [ID] exec: jalankan semua perintah, kembalikan daftar hasil,
-          ? async () => { const out = []; for (const [n, args] of queue) out.push(await ops[n](...args)); return out; }
-          // [ID] perintah lain: catat, kembalikan chain supaya bisa dirangkai.
-          : (...args) => { queue.push([op, args]); return chain; },
-      });
-      // [ID] Objek berantai.
-      return chain;
-    };
-    // [ID] Redis tiruan lengkap.
-    return { ...ops, multi: batch, pipeline: batch };
-  };
+  // The AI has no timer, and the human's clock starts after its move.
+  // [ID] Uji: AI tidak memakai penghitung waktu.
+  {
+    // [ID] Simpan console.warn asli.
+    const warn = console.warn;
+    // [ID] Sembunyikan peringatan (Node tidak punya module worker, jadi AI jalan di thread utama).
+    console.warn = () => {}; // Node has no module workers, so the AI client says it uses the main thread
+    // [ID] UI tiruan.
+    const ui = makeUi();
+    // [ID] Game lawan AI:
+    const g = new Game({
+      // [ID] Mode AI, batas giliran 50 ms, AI kedalaman 1.
+      board, ui, mode: 'ai', turnMs: 50, ai: { depth: 1, prune: true },
+      // [ID] AI di sisi 0 (jalan duluan), manusia di sisi 1.
+      players: [{ kind: 'ai', name: 'ai' }, { kind: 'human', name: 'me' }],
+    });
+    // [ID] Mulai.
+    g.start(createState());
+    // [ID] Giliran AI: tidak ada penghitung dan tampilan waktu kosong.
+    check('AI turn: no clock and a blank timer', g.phase === 'ai' && g.clock === null && ui.shown.at(-1) === null);
+    // [ID] Tunggu 200 ms (lebih lama dari 50 ms).
+    await sleep(200);
+    // [ID] Waktu habis tidak terjadi pada giliran AI.
+    check('AI turn: its limit is not the turn limit', ui.timeUps === 0 && g.state.moves === 0 && g.clock === null);
+    // [ID] Tunggu sampai giliran manusia.
+    await waitFor(() => g.phase === 'jump');
+    // [ID] AI sudah melangkah dan penghitung manusia mulai berjalan.
+    check('after the AI moves, the human clock runs', g.state.moves === 1 && g.clock !== null);
+    // [ID] Selesai.
+    g.dispose();
+    // [ID] Kembalikan console.warn.
+    console.warn = warn;
+  }
 
-  // [ID] Redis tiruan untuk tes.
-  const redis = mockRedis();
-  // [ID] Isi kiriman default (bisa ditimpa).
-  const body = (over = {}) => ({ name: 'Tim Alpha', difficulty: 'hard', side: 0, id: 'game-0001', moves: winGame, ...over });
-  // [ID] Skor yang benar untuk game menang di Hard.
-  const expected = scoreGame(winGame, { level: 'hard', humanSide: 0 }).total;
+  // The clock stops when the game ends and when it is disposed.
+  // [ID] Uji: penghitung berhenti saat game selesai dan saat game ditinggalkan.
+  {
+    // [ID] UI tiruan.
+    const ui = makeUi();
+    // [ID] Batas 100 ms.
+    const g = local(ui, 100);
+    // [ID] Posisi di mana Biru bisa makan di c2.
+    g.start(createState({ p1: sq('a1'), p2: sq('c2'), first: 0 }));
+    // [ID] Biru makan: game selesai.
+    g.handleCell(sq('c2'));
+    // [ID] Penghitung berhenti dan tampilan waktu kosong.
+    check('game over: the clock stops', g.phase === 'over' && g.clock === null && ui.shown.at(-1) === null);
+    // [ID] Tunggu 250 ms.
+    await sleep(250);
+    // [ID] Tidak ada langkah lagi dan tidak ada waktu habis.
+    check('game over: nothing moves afterwards', g.state.moves === 1 && ui.timeUps === 0);
+    // [ID] Selesai.
+    g.dispose();
 
-  // [ID] Kirim game sah dengan skor PALSU 999999.
-  let r = await submitScore(redis, body({ score: 999999, total: 999999 }), '10.0.0.1', 1000);
-  // [ID] Diterima.
-  check('server: finished legal game accepted', r.status === 200, JSON.stringify(r.body));
-  // [ID] Skor palsu diabaikan; total dihitung server dari langkah.
-  check('server: forged score ignored, total comes from the replay', r.body.score?.total === expected && r.body.team?.total === expected, `${r.body.team?.total} vs ${expected}`);
+    // [ID] UI tiruan kedua.
+    const ui2 = makeUi();
+    // [ID] Game lokal kedua.
+    const d = local(ui2, 100);
+    // [ID] Mulai,
+    d.start(createState());
+    // [ID] langsung ditinggalkan.
+    d.dispose();
+    // [ID] Tunggu 250 ms.
+    await sleep(250);
+    // [ID] Penghitung berhenti dan tidak ada langkah.
+    check('dispose: the clock stops and nothing moves', d.clock === null && d.state.moves === 0 && ui2.timeUps === 0 && ui2.shown.at(-1) === null);
+  }
 
-  // Swap one human move for a jump that is not legal in that position.
-  // [ID] Ganti satu langkah pemain dengan lompatan yang tidak sah di posisi itu.
-  // [ID] Salin daftar langkah.
-  const tampered = winGame.map((m) => ({ ...m }));
-  // [ID] Posisi sebelum langkah ke-3.
-  const before = createState();
-  // [ID] Mainkan 2 langkah pertama.
-  for (let i = 0; i < 2; i++) applyMove(before, tampered[i]);
-  // [ID] Lompatan legal di posisi itu.
-  const legal = legalJumps(before);
-  // [ID] Pilih kotak yang bukan lompatan legal.
-  tampered[2].jump = [...Array(49).keys()].find((x) => !legal.includes(x) && x !== before.pos[before.turn]);
-  // [ID] Kirim.
-  r = await submitScore(redis, body({ id: 'game-tamper1', moves: tampered }), '10.0.0.2');
-  // [ID] Harus ditolak: illegal-move.
-  check('server: tampered move log rejected', r.status === 400 && r.body.error === 'illegal-move', JSON.stringify(r.body));
-  // [ID] Tambah langkah setelah game selesai.
-  r = await submitScore(redis, body({ id: 'game-tamper2', moves: [...winGame, winGame[0]] }), '10.0.0.2');
-  // [ID] Ditolak.
-  check('server: move after the game ended rejected', r.status === 400 && r.body.error === 'illegal-move');
-  // [ID] Game belum selesai (langkah terakhir dibuang).
-  r = await submitScore(redis, body({ id: 'game-unfinished', moves: winGame.slice(0, -1) }), '10.0.0.2');
-  // [ID] Ditolak.
-  check('server: unfinished game rejected', r.status === 400 && r.body.error === 'unfinished');
-  // [ID] Level tidak dikenal.
-  r = await submitScore(redis, body({ id: 'game-badlevel', difficulty: 'godlike' }), '10.0.0.2');
-  // [ID] Ditolak.
-  check('server: unknown difficulty rejected', r.status === 400 && r.body.error === 'bad-difficulty');
-  // [ID] Nama yang kosong setelah dibersihkan.
-  r = await submitScore(redis, body({ id: 'game-badname', name: '<>' }), '10.0.0.2');
-  // [ID] Ditolak.
-  check('server: empty-after-cleaning name rejected', r.status === 400 && r.body.error === 'bad-name');
-  // [ID] Langkah dengan tipe data salah.
-  r = await submitScore(redis, body({ id: 'game-badmoves', moves: [{ jump: '3', trap: 1 }] }), '10.0.0.2');
-  // [ID] Ditolak.
-  check('server: malformed moves rejected', r.status === 400 && r.body.error === 'bad-moves');
+  // [ID] Posisi awal di mana tamu (Oranye) jalan duluan.
+  const guestFirst = () => createState({ p1: sq('a1'), p2: sq('g7'), first: 1 });
+  // [ID] Buat game host online dengan batas 100 ms.
+  const hostGame = (ui, sent) => new Game({
+    // [ID] papan, ui, mode online, peran host, batas 100 ms, jaringan tiruan yang mencatat pesan,
+    board, ui, mode: 'online', role: 'host', turnMs: 100, net: { send: (m) => sent.push(m) },
+    // [ID] host = manusia di sisi 0, tamu = remote di sisi 1.
+    players: [{ kind: 'human', name: 'host' }, { kind: 'remote', name: 'guest' }],
+  });
 
-  // [ID] Kiriman kedua dari IP yang sama dalam 10 detik.
-  r = await submitScore(redis, body({ id: 'game-0002' }), '10.0.0.1');
-  // [ID] 429.
-  check('server: second submission within 10 s from the same IP rate-limited', r.status === 429);
-  // [ID] Game yang sama dikirim lagi dari IP lain.
-  r = await submitScore(redis, body(), '10.0.0.3');
-  // [ID] 409.
-  check('server: same game id submitted twice rejected', r.status === 409);
+  // The host waits out the grace period, then plays for a quiet guest and sends the result.
+  // [ID] Uji: tamu diam terlalu lama.
+  {
+    // [ID] Pesan yang dikirim host.
+    const sent = [];
+    // [ID] UI tiruan.
+    const ui = makeUi();
+    // [ID] Game host.
+    const g = hostGame(ui, sent);
+    // [ID] Mulai, giliran tamu.
+    g.start(guestFirst());
+    // [ID] Tunggu hampir sampai akhir tenggang waktu.
+    await sleep(100 + TURN_GRACE_MS - 300);
+    // [ID] Host masih menunggu: belum ada langkah dan belum ada pesan.
+    check('quiet guest: the host waits through the grace period', g.state.moves === 0 && sent.length === 0, `${g.state.moves} ${sent.length}`);
+    // [ID] Tunggu sampai host mengirim pesan.
+    await waitFor(() => sent.length > 0);
+    // [ID] Pesan pertama.
+    const m = sent[0];
+    // [ID] Host memainkan langkah sah untuk tamu dan mengirim state.
+    check('quiet guest: the host plays a legal move and sends the state', m?.t === 'state' && m.last.side === 1 && validateMove(guestFirst(), { jump: m.last.jump, trap: m.last.trap }), JSON.stringify(m?.last));
+    // [ID] Host tidak menampilkan pesan waktu habis (itu bukan gilirannya).
+    check('quiet guest: no time-out message on the host', ui.timeUps === 0);
 
-  // Same team in another case adds up; ties on total and wins go to the earlier team.
-  // [ID] Nama sama dengan huruf berbeda dijumlahkan; total dan menang seri → yang lebih dulu di atas.
-  // [ID] "tim alpha" (huruf kecil) = tim yang sama dengan "Tim Alpha".
-  await submitScore(redis, body({ id: 'game-0003', name: 'tim alpha', moves: lossGame }), '10.0.0.4');
-  // [ID] Tim "Tie Late" mengirim di waktu 9000.
-  await submitScore(redis, body({ id: 'game-0004', name: 'Tie Late', moves: lossGame }), '10.0.0.5', 9000);
-  // [ID] Tim "Tie Early" mengirim di waktu 5000 (lebih awal).
-  await submitScore(redis, body({ id: 'game-0005', name: 'Tie Early', moves: lossGame }), '10.0.0.6', 5000);
-  // [ID] Baca leaderboard.
-  const lb = (await readLeaderboard(redis)).body.teams;
-  // [ID] Skor game kalah di Hard.
-  const loss = scoreGame(lossGame, { level: 'hard', humanSide: 0 }).total;
-  // [ID] Data Tim Alpha.
-  const alpha = lb.find((x) => x.key === 'tim alpha');
-  // [ID] Total dijumlahkan, 2 game, 1 menang, nama tetap dari kiriman pertama.
-  check('leaderboard: totals accumulate per team, case-insensitive', alpha?.total === expected + loss && alpha.games === 2 && alpha.wins === 1 && alpha.name === 'Tim Alpha', JSON.stringify(alpha));
-  // [ID] Urut dari total terbesar.
-  check('leaderboard: sorted by total', lb.every((x, i) => i === 0 || lb[i - 1].total >= x.total));
-  // [ID] Seri: yang mengirim lebih awal di atas.
-  check('leaderboard: tie broken by earlier first submission', lb.findIndex((x) => x.name === 'Tie Early') < lb.findIndex((x) => x.name === 'Tie Late'));
-  // [ID] Peringkat 1, 2, 3, ...
-  check('leaderboard: ranks are 1..n', lb.every((x, i) => x.rank === i + 1));
-  // [ID] Tampilkan leaderboard tes.
-  console.log('   ' + lb.map((x) => `#${x.rank} ${x.name} ${x.total} (${x.wins}/${x.games})`).join(' · '));
+    // A move that arrives after the host already played for the guest is refused.
+    // [ID] Kosongkan catatan pesan.
+    sent.length = 0;
+    // [ID] Langkah tamu yang terlambat datang.
+    g.onNetMessage({ t: 'move', jump: sq('e6'), trap: sq('a7') });
+    // [ID] Tunggu diproses.
+    await g.netQueue;
+    // [ID] Ditolak, dan host mengirim state yang benar.
+    check('quiet guest: a late move is rejected with the true state', sent[0]?.t === 'reject');
+    // [ID] Selesai.
+    g.dispose();
+  }
 
-  // Admin point values.
-  // [ID] Nilai poin dari admin.
-  // [ID] Default sah.
-  check('rules: defaults are valid', JSON.stringify(defaultRules()) === JSON.stringify(normalizeRules(SCORING)));
-  // [ID] Nilai contoh dari admin.
-  const custom = { move: 7, win: 500, multiplier: { easy: 1, medium: 1.5, hard: 2.25, expert: 5 } };
-  // [ID] Diterima.
-  check('rules: valid custom values accepted', !!normalizeRules(custom));
-  // Values saved before the trap and speed bonuses were removed still load.
-  // [ID] Nilai lama yang masih berisi bonus jebakan/cepat tetap bisa dibaca (field lama diabaikan).
-  check('rules: old saved values with extra fields still load', normalizeRules({ ...custom, trapBonus: 5, speedBase: 100, speedPerMove: 5 })?.move === 7);
-  // [ID] Nilai-nilai tidak sah yang harus ditolak:
-  for (const [what, bad] of [
-    // [ID] poin negatif,
-    ['negative points', { ...custom, move: -1 }],
-    // [ID] poin pecahan,
-    ['fractional points', { ...custom, win: 1.5 }],
-    // [ID] poin berupa teks,
-    ['points as a string', { ...custom, move: '10' }],
-    // [ID] field hilang,
-    ['missing field', { ...custom, win: undefined }],
-    // [ID] level hilang,
-    ['missing level', { ...custom, multiplier: { easy: 1, medium: 2, hard: 3 } }],
-    // [ID] pengali di atas 100,
-    ['multiplier over the limit', { ...custom, multiplier: { ...custom.multiplier, expert: 101 } }],
-    // [ID] pengali dengan 3 desimal.
-    ['multiplier with 3 decimals', { ...custom, multiplier: { ...custom.multiplier, easy: 1.234 } }],
-  ]) check(`rules: ${what} rejected`, normalizeRules(bad) === null);
-  // [ID] Nilai level Medium dengan nilai contoh.
-  const lv = levelValues(normalizeRules(custom), 'medium');
-  // [ID] 7 x 1,5 = 10,5 → 11; 500 x 1,5 = 750.
-  check('rules: level values round to whole points', lv.move === 11 && lv.win === 750, JSON.stringify(lv));
-  // [ID] Skor game menang di Hard dengan nilai contoh.
-  const cs = scoreGame(winGame, { level: 'hard', humanSide: 0, rules: custom });
-  // [ID] Poin mengikuti nilai contoh.
-  check('rules: custom values change the score', cs.movePoints === cs.humanMoves * Math.round(7 * 2.25) && cs.winPoints === Math.round(500 * 2.25));
+  // A guest move inside the grace period is accepted, and the host does not play for that turn.
+  // [ID] Uji: langkah tamu masuk selama tenggang waktu.
+  {
+    // [ID] Pesan yang dikirim host.
+    const sent = [];
+    // [ID] UI tiruan.
+    const ui = makeUi();
+    // [ID] Game host.
+    const g = hostGame(ui, sent);
+    // [ID] Waktu mulai.
+    const t0 = performance.now();
+    // [ID] Mulai, giliran tamu.
+    g.start(guestFirst());
+    // [ID] Tunggu 300 ms (sudah lewat batas 100 ms, masih dalam tenggang).
+    await sleep(300);
+    // [ID] Tamu mengirim langkah.
+    g.onNetMessage({ t: 'move', jump: sq('e6'), trap: sq('a7') });
+    // [ID] Tunggu diproses.
+    await g.netQueue;
+    // [ID] Langkah tamu diterima dan dikirim balik.
+    check('guest move in the grace period: accepted', sent[0]?.t === 'state' && sent[0].last.jump === sq('e6') && g.state.pos[1] === sq('e6'), JSON.stringify(sent[0]?.last));
+    // [ID] Tunggu sampai tenggang waktu pasti lewat.
+    await sleep(Math.max(0, 100 + TURN_GRACE_MS + 150 - (performance.now() - t0)));
+    // [ID] Langkah pertama di riwayat.
+    const first = g.history[0];
+    // [ID] Jumlah langkah tamu.
+    const guestMoves = g.history.filter((h) => h.side === 1).length;
+    // [ID] Selesai.
+    g.dispose();
+    // [ID] Langkah cadangan host tidak ikut jalan: hanya ada satu langkah tamu.
+    check('guest move in the grace period: the backup does not fire', first?.jump === sq('e6') && guestMoves === 1, JSON.stringify(g.history));
+  }
 
-  // [ID] Kunci admin untuk tes.
-  const ADMIN = 'test-admin-key-123';
-  // [ID] Tanpa kunci.
-  r = await updateRules(redis, { rules: custom }, '', ADMIN, '10.0.2.1');
-  // [ID] 401.
-  check('admin: missing key -> 401', r.status === 401);
-  // [ID] Kunci salah.
-  r = await updateRules(redis, { rules: custom }, 'wrong', ADMIN, '10.0.2.1');
-  // [ID] 401.
-  check('admin: wrong key -> 401', r.status === 401);
-  // [ID] ADMIN_KEY tidak diset.
-  r = await updateRules(redis, { rules: custom }, ADMIN, undefined, '10.0.2.1');
-  // [ID] 503.
-  check('admin: no ADMIN_KEY set -> 503', r.status === 503);
-  // [ID] Nilai tidak sah dengan kunci benar.
-  r = await updateRules(redis, { rules: { ...custom, move: -5 } }, ADMIN, ADMIN, '10.0.2.1');
-  // [ID] 400.
-  check('admin: invalid values -> 400', r.status === 400 && r.body.error === 'bad-rules');
-  // [ID] Nilai poin tidak berubah setelah percobaan gagal.
-  check('admin: rules unchanged after rejected attempts', JSON.stringify(await getRules(redis)) === JSON.stringify(defaultRules()));
-  // [ID] Kunci benar, nilai sah.
-  r = await updateRules(redis, { rules: custom }, ADMIN, ADMIN, '10.0.2.1');
-  // [ID] Tersimpan.
-  check('admin: correct key saves', r.status === 200 && JSON.stringify(await getRules(redis)) === JSON.stringify(normalizeRules(custom)));
-  // [ID] Kirim game baru setelah nilai diubah.
-  r = await submitScore(redis, body({ id: 'game-custom1', name: 'Tim Custom' }), '10.0.2.2');
-  // [ID] Skor yang diharapkan dengan nilai baru.
-  const customExpected = scoreGame(winGame, { level: 'hard', humanSide: 0, rules: custom }).total;
-  // [ID] Server memakai nilai baru.
-  check('admin: new submissions use the saved values', r.status === 200 && r.body.score.total === customExpected && customExpected !== expected, `${r.body.score?.total} vs ${customExpected}`);
-  // [ID] Kembalikan default.
-  r = await updateRules(redis, { reset: true }, ADMIN, ADMIN, '10.0.2.1');
-  // [ID] Kembali ke default.
-  check('admin: reset restores the defaults', r.status === 200 && JSON.stringify(r.body.rules) === JSON.stringify(defaultRules()));
-  // [ID] 10 kali kunci salah dari satu IP.
-  for (let i = 0; i < 10; i++) await updateRules(redis, { check: true }, 'guess' + i, ADMIN, '10.0.2.9');
-  // [ID] Lalu kunci benar dari IP yang sama.
-  r = await updateRules(redis, { check: true }, ADMIN, ADMIN, '10.0.2.9');
-  // [ID] Tetap terkunci (429).
-  check('admin: locked out after 10 wrong keys, even with the right one', r.status === 429 && r.body.error === 'locked');
+  // The guest's own device acts when its time runs out, and sends a normal move.
+  // [ID] Uji: waktu habis di perangkat tamu.
+  {
+    // [ID] Pesan yang dikirim host.
+    const sent = [];
+    // [ID] UI tiruan.
+    const ui = makeUi();
+    // [ID] Game sebagai tamu online:
+    const g = new Game({
+      // [ID] papan, ui, mode online, peran tamu, batas 100 ms, jaringan tiruan.
+      board, ui, mode: 'online', role: 'guest', turnMs: 100, net: { send: (m) => sent.push(m) },
+      // [ID] host = remote di sisi 0, tamu = manusia di sisi 1.
+      players: [{ kind: 'remote', name: 'host' }, { kind: 'human', name: 'guest' }],
+    });
+    // [ID] Mulai, giliran tamu.
+    g.start(guestFirst());
+    // [ID] Tunggu sampai tamu mengirim pesan.
+    await waitFor(() => sent.length > 0);
+    // [ID] Pesan pertama.
+    const m = sent[0];
+    // [ID] Fase sekarang.
+    const phase = g.phase;
+    // [ID] Selesai.
+    g.dispose();
+    // [ID] Perangkat tamu mengirim langkah sah biasa.
+    check('guest time out: its device sends a legal move', m?.t === 'move' && validateMove(guestFirst(), { jump: m.jump, trap: m.trap }), JSON.stringify(m));
+    // [ID] Lalu menunggu host, dan pesan waktu habis muncul sekali.
+    check('guest time out: its device waits for the host next', phase === 'remote' && ui.timeUps === 1, phase);
+  }
 
-  // The real handlers, with req/res stubs shaped like Vercel's Node helpers.
-  // [ID] Uji file handler asli, dengan req/res tiruan yang bentuknya seperti di Vercel.
-  const call = async (handler, req) => {
-    // [ID] res tiruan:
-    const res = {
-      // [ID] status code, header, isi jawaban,
-      code: 0, headers: {}, body: null,
-      // [ID] simpan header,
-      setHeader(k, v) { this.headers[k] = v; },
-      // [ID] simpan status code (berantai),
-      status(c) { this.code = c; return this; },
-      // [ID] simpan isi JSON.
-      json(b) { this.body = b; return this; },
-    };
-    // [ID] Jalankan handler.
-    await handler(req, res);
-    // [ID] Kembalikan res yang sudah terisi.
-    return res;
-  };
-  // [ID] Pasang Redis tiruan.
-  setRedis(redis);
-  // [ID] Muat handler /api/score.
-  const { default: scoreHandler } = await import('../api/score.js');
-  // [ID] Muat handler /api/leaderboard.
-  const { default: lbHandler } = await import('../api/leaderboard.js');
-  // [ID] GET /api/leaderboard.
-  let res = await call(lbHandler, { method: 'GET', headers: {} });
-  // [ID] 200 dan isinya sama dengan data.
-  check('GET /api/leaderboard returns the teams', res.code === 200 && res.body.teams.length === (await readLeaderboard(redis)).body.teams.length && res.body.teams.length > 0);
-  // [ID] GET ke /api/score (salah metode).
-  res = await call(scoreHandler, { method: 'GET', headers: {} });
-  // [ID] 405.
-  check('GET /api/score -> 405', res.code === 405);
-  // [ID] Buat permintaan POST dengan IP tertentu (isi berupa teks JSON).
-  const post = (b, ip) => ({ method: 'POST', headers: { 'x-forwarded-for': `${ip}, 10.9.9.9` }, body: JSON.stringify(b) });
-  // [ID] POST sah.
-  res = await call(scoreHandler, post(body({ id: 'game-handler1', name: 'Tim Gamma' }), '10.0.1.1'));
-  // [ID] 200.
-  check('POST /api/score (string body) -> 200', res.code === 200 && res.body.team.total === expected, JSON.stringify(res.body));
-  // [ID] POST kedua dari IP yang sama.
-  res = await call(scoreHandler, post(body({ id: 'game-handler2', name: 'Tim Gamma' }), '10.0.1.1'));
-  // [ID] 429 (IP diambil dari bagian pertama x-forwarded-for).
-  check('POST /api/score rate-limited by the first forwarded IP', res.code === 429);
-  // [ID] POST dengan JSON rusak.
-  res = await call(scoreHandler, { method: 'POST', headers: {}, body: '{not json' });
-  // [ID] 400.
-  check('POST /api/score bad JSON -> 400', res.code === 400);
-  // [ID] Muat handler /api/config.
-  const { default: configHandler } = await import('../api/config.js');
-  // [ID] GET /api/config.
-  res = await call(configHandler, { method: 'GET', headers: {} });
-  // [ID] Mengembalikan nilai poin default.
-  check('GET /api/config returns the point values', res.code === 200 && JSON.stringify(res.body.rules) === JSON.stringify(defaultRules()));
-  // [ID] Set ADMIN_KEY sementara.
-  process.env.ADMIN_KEY = ADMIN;
-  // [ID] POST tanpa kunci.
-  res = await call(configHandler, { method: 'POST', headers: { 'x-forwarded-for': '10.0.3.1' }, body: JSON.stringify({ rules: custom }) });
-  // [ID] 401.
-  check('POST /api/config without a key -> 401', res.code === 401);
-  // [ID] POST dengan kunci benar.
-  res = await call(configHandler, { method: 'POST', headers: { authorization: `Bearer ${ADMIN}`, 'x-forwarded-for': '10.0.3.1' }, body: { rules: custom } });
-  // [ID] 200 dan nilai tersimpan.
-  check('POST /api/config with the key -> 200', res.code === 200 && res.body.rules.move === 7);
-  // [ID] Hapus ADMIN_KEY sementara.
-  delete process.env.ADMIN_KEY;
-  // [ID] Lepas Redis (simulasi database belum diset).
-  setRedis(null);
-  // [ID] GET /api/leaderboard tanpa database.
-  res = await call(lbHandler, { method: 'GET', headers: {} });
-  // [ID] 503 not-configured.
-  check('no Redis env vars -> 503 not-configured', res.code === 503 && res.body.error === 'not-configured');
+  // A guest in the middle of its turn takes the host's result when the host played for it.
+  // [ID] Uji: tamu sedang di tengah giliran saat host sudah memainkan langkah untuknya.
+  {
+    // [ID] UI tiruan.
+    const ui = makeUi();
+    // [ID] Game sebagai tamu online:
+    const g = new Game({
+      // [ID] papan, ui, mode online, peran tamu, batas 5 detik, jaringan tiruan.
+      board, ui, mode: 'online', role: 'guest', turnMs: 5000, net: { send: () => {} },
+      // [ID] host = remote di sisi 0, tamu = manusia di sisi 1.
+      players: [{ kind: 'remote', name: 'host' }, { kind: 'human', name: 'guest' }],
+    });
+    // [ID] Mulai, giliran tamu.
+    g.start(guestFirst());
+    // [ID] Tamu sudah lompat ke e6 (belum pasang jebakan).
+    g.handleCell(sq('e6'));
+    // [ID] State versi host:
+    const forced = guestFirst();
+    // [ID] host memainkan f5 + jebak a7 untuk tamu.
+    applyMove(forced, { jump: sq('f5'), trap: sq('a7') });
+    // [ID] Pesan state dari host datang.
+    g.onNetMessage({ t: 'state', state: serialize(forced), last: { side: 1, from: sq('g7'), jump: sq('f5'), trap: sq('a7') } });
+    // [ID] Tunggu diproses.
+    await g.netQueue;
+    // [ID] Tamu memakai hasil host: knight di f5, lompatan tertunda dibuang, dan menunggu host.
+    check('guest mid-turn: it takes the host result', g.state.pos[1] === sq('f5') && g.pendingFrom === null && g.phase === 'remote' && g.clock !== null);
+    // [ID] Selesai.
+    g.dispose();
+  }
 }
 
 // [ID] Ringkasan akhir: ALL PASSED atau FAILED dengan jumlahnya.

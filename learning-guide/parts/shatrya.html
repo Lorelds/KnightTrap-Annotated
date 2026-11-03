@@ -13,7 +13,7 @@
 <table class="t">
   <tr><th>Minggu</th><th>Pekerjaan</th><th>Kode</th></tr>
   <tr><td>1</td><td>Setup proyek HTML/CSS/JS, representasi papan</td><td><code>index.html</code>, <code>config.js</code>, <code>createState()</code></td></tr>
-  <tr><td>2</td><td>Logika aturan: lompatan legal, bakar, jebakan, cek kalah</td><td><code>rules.js</code>; <code>game.js</code>: <code>handleCell()</code></td></tr>
+  <tr><td>2</td><td>Logika aturan: lompatan legal, bakar, jebakan, makan, cek kalah</td><td><code>rules.js</code>; <code>game.js</code>: <code>handleCell()</code></td></tr>
   <tr><td>2–3</td><td>DFS (flood fill): cek papan terbelah, luas area</td><td><code>ai.js</code>: <code>dfs()</code></td></tr>
   <tr><td>3</td><td>Penyatuan BFS + DFS ke evaluasi (bersama Clarrence)</td><td><code>ai.js</code>: <code>evaluate()</code></td></tr>
   <tr><td>3</td><td>Playtest ±10 orang, kuesioner, perbaikan bug</td><td>Lampiran di guide ini</td></tr>
@@ -41,24 +41,25 @@
 {{fn:js/rules.js:canMove}}
 {{fn:js/rules.js:hasOpenSquare}}
 {{fn:js/rules.js:endTurn}}
-<p><code>canMove</code> sama seperti <code>legalJumps(...).length &gt; 0</code>, tetapi berhenti di lompatan legal pertama, jadi lebih cepat. <code>hasOpenSquare</code> dipakai untuk kasus langka: setelah lompat, tidak ada kotak terbuka yang bisa dijebak. Saat itu jebakan dilewati dan dicatat sebagai <code>trap = -1</code>.</p>
+<p><code>canMove</code> sama seperti <code>legalJumps(...).length &gt; 0</code>, tetapi berhenti di lompatan legal pertama, jadi lebih cepat. Kotak musuh ikut dihitung, karena melompat ke sana berarti makan; jadi knight yang satu-satunya lompatannya adalah makan tidak dianggap terkurung. <code>hasOpenSquare</code> dipakai untuk kasus langka: setelah lompat, tidak ada kotak terbuka yang bisa dijebak. Saat itu jebakan dilewati dan dicatat sebagai <code>trap = -1</code>.</p>
 <h3>Validasi langkah lengkap</h3>
 {{fn:js/rules.js:validateMove}}
 <ol>
   <li><code>jump</code> dan <code>trap</code> harus bilangan bulat (menolak data aneh dari jaringan).</li>
   <li>Game belum selesai.</li>
   <li>Lompatan termasuk <code>legalJumps</code>.</li>
+  <li>Kalau lompatan mendarat di kotak musuh (makan), jebakan harus −1 karena game langsung selesai.</li>
   <li>Lompatan diterapkan ke <b>salinan</b> (<code>cloneState</code>), supaya state asli tidak berubah.</li>
   <li>Kalau tidak ada kotak terbuka, jebakan harus −1. Kalau ada, jebakan harus kotak terbuka (bukan kotak knight mana pun, bukan kotak yang baru terbakar).</li>
 </ol>
-<p>Fungsi ini dipakai di tiga tempat: host online memeriksa langkah tamu, game memeriksa langkah AI sebelum dimainkan, dan server leaderboard memutar ulang seluruh game.</p>
+<p>Fungsi ini dipakai di dua tempat: host online memeriksa langkah tamu, dan game memeriksa langkah AI sebelum dimainkan. Tes juga memakainya untuk memastikan setiap langkah AI sah.</p>
 {{fn:js/rules.js:applyMove}}
 
 <h3>Input pemain: dua klik per giliran</h3>
 {{fn:js/game.js:handleCell}}
-<p><b>Fase <code>jump</code>:</b> klik di kotak yang bukan lompatan legal memutar suara "invalid". Kalau legal, <code>applyJump</code> dijalankan, kotak asal disimpan di <code>pendingFrom</code> (untuk tombol batal), dan animasi diputar. Selama animasi, fase menjadi <code>animating</code> sehingga klik diabaikan. <b>Fase <code>trap</code>:</b> klik harus di kotak terbuka; lalu <code>applyTrap</code> dan <code>completeHumanMove</code> mengakhiri giliran.</p>
+<p><b>Fase <code>jump</code>:</b> klik di kotak yang bukan lompatan legal diabaikan. Kalau legal, <code>applyJump</code> dijalankan dan kotak asal disimpan di <code>pendingFrom</code> (untuk tombol batal). Kalau lompatan itu memakan musuh, atau tidak ada kotak tersisa untuk dijebak, giliran langsung selesai dengan jebakan −1. <b>Fase <code>trap</code>:</b> klik harus di kotak terbuka; lalu <code>applyTrap</code> dan <code>completeHumanMove</code> mengakhiri giliran. Saat waktu giliran habis, <code>timeUp()</code> juga memanggil <code>handleCell()</code>, jadi aturan yang sama berlaku.</p>
 {{fn:js/game.js:undoJump}}
-<p>Batal lompat aman karena giliran baru dihitung setelah jebakan dipasang. Knight dikembalikan, dan kotak asal dibuat <code>EMPTY</code> lagi (tidak jadi terbakar).</p>
+<p>Batal lompat aman karena giliran baru dihitung setelah jebakan dipasang. Knight dikembalikan, dan kotak asal dibuat <code>EMPTY</code> lagi (tidak jadi terbakar). Pemain bisa membatalkan lewat tombol Batal lompat, klik knight sendiri, atau tombol Esc. Waktu giliran tidak diulang.</p>
 
 <h2>DFS: Depth-First Search dan Flood Fill</h2>
 <h3>Ide</h3>
@@ -79,12 +80,13 @@
 <h3>Mendeteksi papan terbelah</h3>
 <p>DFS dijalankan dari kedua knight, dengan tanda di <code>markA</code> dan <code>markB</code>. Kalau tidak ada satu pun kotak yang ditandai 1 di keduanya, kedua knight hidup di area terpisah dan tidak bisa saling mengganggu lagi. Pemenangnya ditentukan oleh siapa yang areanya lebih luas (dia bisa melompat lebih lama).</p>
 {{split}}
-{{lines:js/ai.js:78:91}}
+{{lines:js/ai.js:87:98}}
 
 <h2>Menyatukan BFS dan DFS di evaluate()</h2>
 {{fn:js/ai.js:evaluate}}
 <ol>
-  <li><b>DFS dulu</b> untuk kedua knight, hitung luas area.</li>
+  <li><b>Posisi yang sudah pasti dicek dulu:</b> yang jalan sudah dimakan atau tidak bisa lompat = kalah; yang jalan bisa langsung makan = menang di ply berikutnya. Skornya memakai <code>WIN − ply</code>, sama seperti pencarian.</li>
+  <li><b>DFS</b> untuk kedua knight, hitung luas area.</li>
   <li><b>Cek split:</b> apakah ada kotak yang dicapai keduanya?</li>
   <li><b>Kalau terbelah:</b> skor = (areaA − areaB) × <code>SPLIT_WEIGHT</code> (100).</li>
   <li><b>Kalau belum:</b> BFS dari kedua knight, hitung wilayah (bagian Clarrence), tambah 0,5 × selisih mobilitas.</li>
@@ -94,8 +96,8 @@
 <p><b>Urutan DFS → BFS juga menghemat waktu:</b> kalau papan sudah terbelah, dua BFS tidak perlu dijalankan.</p>
 
 <h2>Pengujian Aturan</h2>
-{{lines:tests/run.mjs:38:108}}
-<p>Bagian 1 dari tes memeriksa setiap aturan: posisi awal, lompatan legal dari a1 (hanya b3 dan c2), kotak asal terbakar, jebakan tercatat, giliran berpindah, tidak bisa mendarat di kotak terbakar/jebakan/lawan, validasi jebakan, deteksi kalah, kasus tidak ada kotak tersisa, serialisasi, dan contoh papan terbelah untuk DFS.</p>
+{{lines:tests/run.mjs:38:83}}
+<p>Bagian 1 dari tes memeriksa setiap aturan: posisi awal, lompatan legal dari a1 (hanya b3 dan c2), kotak asal terbakar, jebakan tercatat, giliran berpindah, tidak bisa mendarat di kotak terbakar/jebakan, kotak musuh boleh dituju tetapi tidak boleh dijebak, validasi jebakan, deteksi kalah, aturan makan (lihat bab "Tambahan di Luar Proposal"), kasus tidak ada kotak tersisa, serialisasi, dan contoh papan terbelah untuk DFS. Potongan di atas hanya sampai deteksi kalah.</p>
 
 <h2>Panduan Playtest (Tabel 2.2.3, baris 4)</h2>
 <p>Target proposal: sekitar 10 siswa SMA atau teman, kuesioner skala 1–5, <b>rata-rata kejelasan aturan minimal 4</b> dan tingkat tantangan dinilai sesuai. Tes otomatis tidak bisa menggantikan ini, dan hasilnya hanya boleh dilaporkan kalau benar-benar dilakukan.</p>
@@ -126,7 +128,7 @@
 <p>Laporkan: jumlah peserta, rata-rata tiap pernyataan, level yang dipilih, berapa yang menang, dan bug yang ditemukan beserta perbaikannya.</p>
 
 {{include:common-results}}
-{{include:common-points}}
+{{include:common-extras}}
 
 <h2>Latihan</h2>
 <div class="box ex"><h4>Latihan 1: Indeks</h4>
@@ -135,6 +137,9 @@
 <div class="box ex"><h4>Latihan 2: Validasi</h4>
 <p>Knight P1 di d4, P2 di e6, kotak b3 terbakar. Apakah langkah <code>{ jump: f5, trap: d4 }</code> sah?</p>
 <p><b>Jawaban:</b> Tidak. Lompatan ke f5 legal, tetapi setelah lompat, d4 terbakar, jadi tidak bisa dijebak. Tes "trap on burned origin rejected" memeriksa kasus ini.</p></div>
+<div class="box ex"><h4>Latihan 4: Makan</h4>
+<p>Knight P1 di a1, P2 di c2, giliran P1. Apakah <code>{ jump: c2, trap: a7 }</code> sah? Bagaimana dengan <code>{ jump: c2, trap: -1 }</code>?</p>
+<p><b>Jawaban:</b> Yang pertama tidak sah: lompat ke c2 memakan P2, jadi tidak boleh ada jebakan. Yang kedua sah, dan setelahnya <code>winner()</code> mengembalikan 0 (P1 menang) karena kedua knight ada di c2.</p></div>
 <div class="box ex"><h4>Latihan 3: Flood fill</h4>
 <p>Pada contoh papan terbelah, area P1 = {b3, c2} dan P2 = {e6, f5, g3, g5}. Kenapa P1 tidak bisa mencapai f5 walaupun f5 terbuka?</p>
 <p><b>Jawaban:</b> Semua jalur dari b3/c2 ke f5 melewati kotak terbakar. DFS hanya menyebar ke tetangga yang terbuka, jadi f5 tidak pernah dicapai dari a1.</p></div>
@@ -142,7 +147,8 @@
 <h2>Pertanyaan Presentasi yang Mungkin Muncul</h2>
 <div class="qa"><p class="q">Kenapa papan disimpan sebagai array satu dimensi, bukan 7 × 7?</p><p class="a">Lebih cepat dan sederhana: satu angka per kotak, mudah disalin (<code>Int8Array</code>), dan tetangga knight sudah dihitung sebagai daftar indeks.</p></div>
 <div class="qa"><p class="q">Kenapa DFS untuk flood fill, bukan BFS?</p><p class="a">Untuk flood fill hanya perlu tahu kotak mana yang terhubung, bukan jaraknya. Keduanya benar; DFS dengan stack sedikit lebih sederhana. Proposal memakai keduanya untuk tujuan berbeda: BFS untuk jarak/wilayah, DFS untuk area/split.</p></div>
-<div class="qa"><p class="q">Bagaimana game mencegah langkah curang?</p><p class="a">Semua langkah melewati <code>legalJumps</code>/<code>isOpen</code>; langkah dari AI, pemain online, dan server diperiksa dengan <code>validateMove</code>. Aturan hanya ditulis sekali di <code>rules.js</code>.</p></div>
+<div class="qa"><p class="q">Bagaimana game mencegah langkah curang?</p><p class="a">Semua langkah melewati <code>legalJumps</code>/<code>isOpen</code>; langkah dari AI dan dari pemain online diperiksa dengan <code>validateMove</code>, dan host menolak langkah tamu yang tidak sah. Aturan hanya ditulis sekali di <code>rules.js</code>.</p></div>
+<div class="qa"><p class="q">Proposal melarang mendarat di kotak lawan. Kenapa di game boleh?</p><p class="a">Itu perubahan setelah proposal: mendarat di kotak lawan sekarang memakan lawan dan langsung menang. Karena warna kotak, hanya Oranye (yang jalan kedua) yang bisa makan. Jebakan tetap tidak boleh di kotak knight.</p></div>
 <div class="qa"><p class="q">Apa arti "papan terbelah" dan kenapa skornya × 100?</p><p class="a">Kedua knight tidak lagi bisa mencapai kotak yang sama, jadi hasil game praktis ditentukan oleh luas area. × 100 memastikan situasi ini selalu dinilai lebih penting daripada skor wilayah (maks. ±53).</p></div>
 <div class="qa"><p class="q">Apa yang terjadi kalau tidak ada kotak untuk dijebak?</p><p class="a">Jebakan dilewati dan dicatat sebagai −1. <code>validateMove</code> hanya menerima −1 dalam kasus ini.</p></div>
 <div class="qa"><p class="q">Apa hasil playtest kalian?</p><p class="a">Laporkan angka nyata dari kuesioner. Kalau playtest belum selesai, katakan itu dengan jujur dan jelaskan rencananya.</p></div>
@@ -150,7 +156,7 @@
 <h2>Checklist Sebelum Presentasi</h2>
 <ul class="check">
   <li>Bisa mengubah koordinat ke indeks dan sebaliknya tanpa kalkulator.</li>
-  <li>Bisa menunjuk fungsi untuk setiap aturan (a)–(e) di <code>rules.js</code>.</li>
+  <li>Bisa menunjuk fungsi untuk setiap aturan (a)–(e) di <code>rules.js</code>, plus aturan makan.</li>
   <li>Bisa menjelaskan flood fill dengan contoh papan terbelah.</li>
   <li>Bisa menjelaskan urutan DFS → BFS di <code>evaluate()</code> dan alasan bobot 100.</li>
   <li>Data playtest sudah direkap (jumlah peserta, rata-rata, bug).</li>

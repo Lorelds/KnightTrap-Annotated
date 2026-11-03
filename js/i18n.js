@@ -5,16 +5,10 @@
 const STRINGS = {
   // [ID] Blok bahasa Indonesia.
   id: {
-    // [ID] Slogan di bawah judul menu.
-    tagline: 'Lompat. Bakar. Jebak.',
     // [ID] Tombol/judul mode Single Player.
     singlePlayer: 'Single Player',
-    // [ID] Keterangan kecil di tombol Single Player.
-    vsAi: 'Lawan AI Minimax',
     // [ID] Tombol/judul mode Multiplayer.
     multiplayer: 'Multiplayer',
-    // [ID] Keterangan kecil di tombol Multiplayer.
-    mpSub: 'Lokal atau online',
     // [ID] Tombol/judul layar Cara Bermain.
     howToPlay: 'Cara Bermain',
     // [ID] Tombol/judul layar Pengaturan.
@@ -57,21 +51,27 @@ const STRINGS = {
     joiningHint: 'Menghubungkan ke ruang…',
     // [ID] Tombol Main sekarang di layar Cara Bermain.
     playNow: 'Main sekarang',
+    // [ID] Aturan Mulai di layar Cara Bermain: posisi awal, Biru jalan duluan, warna di Single Player dan Online.
+    startRule: '<strong>Mulai:</strong> Biru mulai di a1 (kiri bawah), Oranye di g7 (kanan atas). Biru selalu jalan duluan. Di Single Player, pilihan "Siapa jalan duluan?" menentukan kamu jadi Biru atau Oranye. Di Online, warna bertukar setiap main lagi.',
+    // [ID] Aturan Makan di layar Cara Bermain (HTML <strong>, dipasang lewat data-i18n-html).
+    eatRule: '<strong>Makan:</strong> lompat ke kotak knight musuh untuk memakannya dan langsung menang.',
+    // [ID] Aturan Batal lompat di layar Cara Bermain (dipasang oleh buildHowTo di main.js).
+    undoRule: '<strong>Batal lompat:</strong> sebelum memasang jebakan, lompatan masih bisa dibatalkan dengan tombol Batal lompat, klik knight-mu, atau tombol Esc.',
+    // [ID] Aturan Petunjuk: kotak tujuanmu selalu tampil, kotak tujuan musuh muncul dengan tombol P.
+    hintRule: '<strong>Petunjuk:</strong> kotak yang bisa kamu tuju selalu terlihat. Kotak yang bisa dituju musuh tersembunyi; tekan tombol P untuk menampilkan atau menyembunyikannya.',
+    // [ID] Aturan Waktu; fungsi yang menerima n = TURN_SECONDS dari config.js.
+    timeRule: (n) => `<strong>Waktu:</strong> satu giliran (lompat dan jebak) maksimal ${n} detik. Kalau waktu habis sebelum lompat, permainan memilih lompatan dan jebakan acak. Kalau sudah lompat, hanya jebakannya yang dipilih acak.`,
     // [ID] Aturan kalah di layar Cara Bermain (berisi HTML <strong>, dipasang lewat data-i18n-html).
     loseRule: '<strong>Kalah:</strong> jika pada giliranmu knight tidak punya lompatan legal, kamu kalah. Kurung lawan sebelum dia mengurungmu!',
-    // [ID] Label saklar Suara.
-    sound: 'Suara',
-    // [ID] Penjelasan saklar Suara.
-    soundSub: 'Efek lompat, bakar, dan jebakan.',
     // [ID] Label pilihan Bahasa.
     language: 'Bahasa',
     // [ID] Satuan "lompatan" di kartu pemain.
     jumps: 'lompatan',
     // [ID] Tombol Batal lompat.
     undoJump: 'Batal lompat',
-    // [ID] Judul panel "Otak AI".
-    aiBrain: 'Otak AI',
-    // [ID] Teks animasi "berpikir".
+    // [ID] Judul panel Statistik AI.
+    aiBrain: 'Statistik AI',
+    // [ID] Teks "berpikir" saat AI sedang mencari langkah.
     thinking: 'berpikir',
     // [ID] Label statistik Kedalaman.
     statDepth: 'Kedalaman',
@@ -97,7 +97,7 @@ const STRINGS = {
     // [ID] Judul langkah 1 Cara Bermain (Lompat).
     step1Title: 'Lompat',
     // [ID] Penjelasan langkah 1.
-    step1Text: 'Gerakkan knight seperti kuda catur: bentuk huruf L ke kotak yang masih terbuka.',
+    step1Text: 'Gerakkan knight seperti kuda catur: bentuk huruf L ke kotak yang belum terbakar dan bukan jebakan.',
     // [ID] Judul langkah 2 (Bakar).
     step2Title: 'Bakar',
     // [ID] Penjelasan langkah 2.
@@ -105,7 +105,7 @@ const STRINGS = {
     // [ID] Judul langkah 3 (Jebak).
     step3Title: 'Jebak',
     // [ID] Penjelasan langkah 3.
-    step3Text: 'Lalu hancurkan satu kotak terbuka di mana pun. Tutup jalan kabur lawan!',
+    step3Text: 'Setelah lompat, hancurkan satu kotak kosong di mana pun. Kotak yang ditempati knight tidak bisa dijebak. Tutup jalan kabur lawan!',
     // Game text
     // [ID] Judul mode di atas layar game; fungsi yang menerima nama level.
     modeAi: (lvl) => `Single Player · ${lvl}`,
@@ -151,12 +151,24 @@ const STRINGS = {
     aiWinSub: 'AI berhasil mengurung knight-mu.',
     // [ID] Keterangan saat pemain mengalahkan AI.
     youWinSub: 'Knight AI terkurung. Strategi yang bagus!',
+    // [ID] Keterangan di layar akhir saat knight seseorang dimakan (mode Multiplayer).
+    eatenSub: (name) => `${name} dimakan.`,
+    // [ID] Keterangan saat pemain memakan knight AI.
+    youAteSub: 'Kamu memakan knight AI.',
+    // [ID] Keterangan saat AI memakan knight pemain.
+    aiAteSub: 'AI memakan knight-mu.',
+    // [ID] Tanda "makan" di riwayat langkah.
+    ateMark: 'makan',
     // [ID] Skor langkah di panel AI saat AI melihat kemenangan pasti dalam n giliran.
     scoreWin: (n) => `Menang dalam ${n} giliran`,
     // [ID] Skor langkah di panel AI saat AI melihat kekalahan pasti dalam n giliran.
     scoreLoss: (n) => `Kalah dalam ${n} giliran`,
     // [ID] Label saat AI berhenti karena batas 4 detik.
     timedOut: 'batas 4 dtk',
+    // [ID] Sisa waktu giliran, misalnya "12 dtk".
+    timerLeft: (n) => `${n} dtk`,
+    // [ID] Pesan saat waktu habis dan langkah dipilih acak.
+    timeUp: 'Waktu habis, permainan memilih langkah untukmu.',
     // Network
     // [ID] Status online: membuat ruang.
     netCreating: 'Membuat ruang…',
@@ -188,133 +200,13 @@ const STRINGS = {
     oppWantsRematch: 'Lawan ingin main lagi!',
     // [ID] Pertanyaan konfirmasi keluar dari game.
     leaveConfirm: 'Keluar dari game?',
-    // Points and leaderboard
-    // [ID] Tombol/judul layar Leaderboard.
-    leaderboard: 'Leaderboard',
-    // [ID] Keterangan kecil di tombol Leaderboard.
-    lbMenuSub: 'Peringkat Human vs AI',
-    // [ID] Judul kolom Tim.
-    lbTeam: 'Tim',
-    // [ID] Judul kolom Poin.
-    lbPoints: 'Poin',
-    // [ID] Judul kolom jumlah Menang.
-    lbWins: 'Menang',
-    // [ID] Judul kolom jumlah game dimainkan.
-    lbGames: 'Main',
-    // [ID] Status leaderboard: memuat.
-    lbLoading: 'Memuat…',
-    // [ID] Status leaderboard: diperbarui pada jam tertentu.
-    lbUpdated: (time) => `Diperbarui ${time}`,
-    // [ID] Status leaderboard: server tidak bisa dihubungi.
-    lbOffline: 'Leaderboard offline',
-    // [ID] Teks saat leaderboard masih kosong.
-    lbEmpty: 'Belum ada skor. Jadilah yang pertama!',
-    // [ID] Info jumlah skor yang tersimpan di perangkat dan belum terkirim.
-    lbPending: (n) => `${n} skor tersimpan di perangkat ini dan akan dikirim saat leaderboard online.`,
-    // [ID] Judul dialog dan label Nama tim.
-    teamName: 'Nama tim',
-    // [ID] Petunjuk di dialog nama tim.
-    teamPrompt: 'Masukkan nama tim atau pemain untuk leaderboard.',
-    // [ID] Error: panjang nama tidak sah (menerima batas min dan maks).
-    teamInvalid: (min, max) => `Nama harus ${min}–${max} karakter.`,
-    // [ID] Tombol Simpan.
-    save: 'Simpan',
-    // [ID] Tombol Batal.
-    cancel: 'Batal',
-    // [ID] Tombol Ganti nama tim.
-    change: 'Ganti',
-    // [ID] Kata "Poin" (kotak skor dan judul rincian).
-    points: 'Poin',
-    // [ID] Baris rincian: jumlah langkah x poin per langkah.
-    ptMoves: (n, each) => `Langkah (${n} × ${each})`,
-    // [ID] Baris rincian: bonus menang.
-    ptWin: 'Bonus menang',
-    // [ID] Baris rincian: total.
-    ptTotal: 'Total',
-    // [ID] Tombol Kirim skor.
-    submitScore: 'Kirim skor',
-    // [ID] Status: sedang mengirim.
-    submitting: 'Mengirim…',
-    // [ID] Status berhasil: poin game, peringkat, dan total tim.
-    submitted: (pts, rank, total) => `Terkirim! +${pts} poin · peringkat #${rank} · total tim ${total}`,
-    // [ID] Status: terlalu cepat (batas 1 kiriman per 10 detik).
-    submitRate: 'Terlalu cepat. Coba lagi beberapa detik lagi.',
-    // [ID] Status: game ini sudah pernah dikirim.
-    submitDup: 'Game ini sudah dikirim.',
-    // [ID] Status: server menolak skor.
-    submitRejected: 'Skor ditolak server.',
-    // [ID] Status: server offline, skor disimpan untuk dikirim nanti.
-    submitOffline: 'Leaderboard offline. Skor disimpan di perangkat ini dan dikirim nanti.',
-    // [ID] Toast: skor tertunda berhasil dikirim.
-    pendingSent: 'Skor tersimpan berhasil dikirim.',
-    // [ID] Judul tabel "Cara dapat poin".
-    pointsHow: 'Cara dapat poin',
-    // [ID] Penjelasan di bawah tabel poin.
-    pointsNote: 'Setiap langkahmu dapat poin, dan menang dapat bonus. Makin sulit, makin besar poinnya.',
-    // [ID] Label poin per langkah di kartu level.
-    ptsPerMove: (n) => `+${n} poin/langkah`,
-    // [ID] Judul kolom Level di tabel poin.
-    ptLevel: 'Level',
-    // [ID] Judul kolom poin per Langkah.
-    ptColMove: 'Langkah',
-    // [ID] Judul kolom bonus Menang.
-    ptColWin: 'Menang',
-    // Admin
-    // [ID] Judul halaman admin.
-    adminTitle: 'Admin Poin',
-    // [ID] Label kolom kunci admin.
-    adminKey: 'Kunci admin',
-    // [ID] Petunjuk kolom kunci admin.
-    adminKeyHint: 'Nilai ADMIN_KEY dari Vercel. Hanya disimpan di tab ini.',
-    // [ID] Tombol Masuk di halaman admin.
-    adminLoad: 'Masuk',
-    // [ID] Judul bagian poin dasar.
-    adminPoints: 'Poin dasar',
-    // [ID] Judul bagian pengali per level.
-    adminMultipliers: 'Pengali per tingkat',
-    // [ID] Label kolom poin per langkah.
-    adminMove: 'Per langkah',
-    // [ID] Label kolom bonus menang.
-    adminWin: 'Bonus menang',
-    // [ID] Judul pratinjau tabel poin.
-    adminPreview: 'Pratinjau',
-    // [ID] Tombol Simpan poin.
-    adminSave: 'Simpan poin',
-    // [ID] Tombol Kembalikan default.
-    adminReset: 'Kembalikan default',
-    // [ID] Catatan: perubahan hanya berlaku untuk game berikutnya.
-    adminNote: 'Perubahan berlaku untuk game yang dikirim setelah disimpan. Total tim yang sudah ada tidak berubah.',
-    // [ID] Status: poin tersimpan.
-    adminSaved: 'Poin disimpan.',
-    // [ID] Status: poin kembali ke default.
-    adminResetDone: 'Poin kembali ke default.',
-    // [ID] Error: ada nilai yang tidak sah.
-    adminInvalid: 'Ada nilai yang tidak valid. Poin: bilangan bulat 0–100000. Pengali: 0–100, maks 2 desimal.',
-    // [ID] Error: kunci admin salah.
-    adminUnauthorized: 'Kunci admin salah.',
-    // [ID] Error: terkunci 10 menit setelah terlalu banyak percobaan salah.
-    adminLocked: 'Terlalu banyak percobaan salah. Coba lagi dalam 10 menit.',
-    // [ID] Error: ADMIN_KEY belum diset di Vercel.
-    adminDisabled: 'Admin belum aktif: set ADMIN_KEY di Vercel lalu redeploy.',
-    // [ID] Error: server tidak bisa dihubungi.
-    adminOffline: 'Server tidak bisa dihubungi.',
-    // [ID] Pertanyaan konfirmasi kembalikan default.
-    adminResetConfirm: 'Kembalikan semua poin ke nilai default?',
-    // [ID] Tombol kembali ke game (cadangan).
-    adminBack: 'Ke game',
   },
   // [ID] Blok bahasa Inggris (kunci sama, isinya terjemahan).
   en: {
-    // [ID] Inggris: Slogan di bawah judul menu.
-    tagline: 'Jump. Burn. Trap.',
     // [ID] Inggris: Tombol/judul mode Single Player.
     singlePlayer: 'Single Player',
-    // [ID] Inggris: Keterangan kecil di tombol Single Player.
-    vsAi: 'Versus the Minimax AI',
     // [ID] Inggris: Tombol/judul mode Multiplayer.
     multiplayer: 'Multiplayer',
-    // [ID] Inggris: Keterangan kecil di tombol Multiplayer.
-    mpSub: 'Local or online',
     // [ID] Inggris: Tombol/judul layar Cara Bermain.
     howToPlay: 'How to Play',
     // [ID] Inggris: Tombol/judul layar Pengaturan.
@@ -357,21 +249,27 @@ const STRINGS = {
     joiningHint: 'Connecting to the room…',
     // [ID] Inggris: Tombol Main sekarang di layar Cara Bermain.
     playNow: 'Play now',
+    // [ID] Inggris: Aturan Mulai di layar Cara Bermain: posisi awal, Biru jalan duluan, warna di Single Player dan Online.
+    startRule: '<strong>Start:</strong> Blue starts on a1 (bottom left), Orange on g7 (top right). Blue always moves first. In Single Player, the "Who moves first?" choice decides whether you play Blue or Orange. Online, colours swap on every rematch.',
+    // [ID] Inggris: Aturan Batal lompat di layar Cara Bermain (dipasang oleh buildHowTo di main.js).
+    undoRule: '<strong>Undo jump:</strong> before you place the trap, you can still take the jump back with the Undo jump button, by clicking your knight, or with the Esc key.',
+    // [ID] Inggris: Aturan Makan di layar Cara Bermain (HTML <strong>, dipasang lewat data-i18n-html).
+    eatRule: '<strong>Eating:</strong> jump onto the enemy knight’s square to eat it and win at once.',
+    // [ID] Inggris: Aturan Petunjuk: kotak tujuanmu selalu tampil, kotak tujuan musuh muncul dengan tombol P.
+    hintRule: '<strong>Hints:</strong> the squares you can jump to are always shown. The squares your enemy can jump to are hidden; press the P key to show or hide them.',
+    // [ID] Inggris: Aturan Waktu; fungsi yang menerima n = TURN_SECONDS dari config.js.
+    timeRule: (n) => `<strong>Time:</strong> one turn (jump and trap) lasts at most ${n} seconds. If time runs out before you jump, the game picks a random jump and trap. If you already jumped, only the trap is picked at random.`,
     // [ID] Inggris: Aturan kalah di layar Cara Bermain (berisi HTML <strong>, dipasang lewat data-i18n-html).
     loseRule: '<strong>Losing:</strong> if your knight has no legal jump on your turn, you lose. Box your opponent in before they box you in!',
-    // [ID] Inggris: Label saklar Suara.
-    sound: 'Sound',
-    // [ID] Inggris: Penjelasan saklar Suara.
-    soundSub: 'Jump, burn and trap effects.',
     // [ID] Inggris: Label pilihan Bahasa.
     language: 'Language',
     // [ID] Inggris: Satuan "lompatan" di kartu pemain.
     jumps: 'jumps',
     // [ID] Inggris: Tombol Batal lompat.
     undoJump: 'Undo jump',
-    // [ID] Inggris: Judul panel "Otak AI".
-    aiBrain: 'AI Brain',
-    // [ID] Inggris: Teks animasi "berpikir".
+    // [ID] Inggris: Judul panel Statistik AI.
+    aiBrain: 'AI stats',
+    // [ID] Inggris: Teks "berpikir" saat AI sedang mencari langkah.
     thinking: 'thinking',
     // [ID] Inggris: Label statistik Kedalaman.
     statDepth: 'Depth',
@@ -396,7 +294,7 @@ const STRINGS = {
     // [ID] Inggris: Judul langkah 1 Cara Bermain (Lompat).
     step1Title: 'Jump',
     // [ID] Inggris: Penjelasan langkah 1.
-    step1Text: 'Move your knight like a chess knight: an L-shape onto any open square.',
+    step1Text: 'Move your knight like a chess knight: an L-shape onto any square that is not burned or trapped.',
     // [ID] Inggris: Judul langkah 2 (Bakar).
     step2Title: 'Burn',
     // [ID] Inggris: Penjelasan langkah 2.
@@ -404,7 +302,7 @@ const STRINGS = {
     // [ID] Inggris: Judul langkah 3 (Jebak).
     step3Title: 'Trap',
     // [ID] Inggris: Penjelasan langkah 3.
-    step3Text: 'Then destroy any one open square on the board. Cut off your opponent’s escape!',
+    step3Text: 'After the jump, destroy any one empty square on the board. A square with a knight on it cannot be trapped. Cut off your opponent’s escape!',
     // [ID] Inggris: Judul mode di atas layar game; fungsi yang menerima nama level.
     modeAi: (lvl) => `Single Player · ${lvl}`,
     // [ID] Inggris: Judul mode Lokal di atas layar game.
@@ -449,12 +347,24 @@ const STRINGS = {
     aiWinSub: 'The AI boxed your knight in.',
     // [ID] Inggris: Keterangan saat pemain mengalahkan AI.
     youWinSub: 'The AI knight is trapped. Nicely played!',
+    // [ID] Inggris: Keterangan di layar akhir saat knight seseorang dimakan (mode Multiplayer).
+    eatenSub: (name) => `${name} was eaten.`,
+    // [ID] Inggris: Keterangan saat pemain memakan knight AI.
+    youAteSub: 'You ate the AI knight.',
+    // [ID] Inggris: Keterangan saat AI memakan knight pemain.
+    aiAteSub: 'The AI ate your knight.',
+    // [ID] Inggris: Tanda "makan" di riwayat langkah.
+    ateMark: 'eats',
     // [ID] Inggris: Skor langkah di panel AI saat AI melihat kemenangan pasti dalam n giliran.
     scoreWin: (n) => `Win in ${n} turns`,
     // [ID] Inggris: Skor langkah di panel AI saat AI melihat kekalahan pasti dalam n giliran.
     scoreLoss: (n) => `Loss in ${n} turns`,
     // [ID] Inggris: Label saat AI berhenti karena batas 4 detik.
     timedOut: '4 s limit',
+    // [ID] Inggris: Sisa waktu giliran, misalnya "12 dtk".
+    timerLeft: (n) => `${n} s`,
+    // [ID] Inggris: Pesan saat waktu habis dan langkah dipilih acak.
+    timeUp: 'Time is up, so the game moved for you.',
     // [ID] Inggris: Status online: membuat ruang.
     netCreating: 'Creating room…',
     // [ID] Inggris: Status online: menunggu lawan.
@@ -485,118 +395,6 @@ const STRINGS = {
     oppWantsRematch: 'Your opponent wants a rematch!',
     // [ID] Inggris: Pertanyaan konfirmasi keluar dari game.
     leaveConfirm: 'Leave the game?',
-    // [ID] Inggris: Tombol/judul layar Leaderboard.
-    leaderboard: 'Leaderboard',
-    // [ID] Inggris: Keterangan kecil di tombol Leaderboard.
-    lbMenuSub: 'Human vs AI rankings',
-    // [ID] Inggris: Judul kolom Tim.
-    lbTeam: 'Team',
-    // [ID] Inggris: Judul kolom Poin.
-    lbPoints: 'Points',
-    // [ID] Inggris: Judul kolom jumlah Menang.
-    lbWins: 'Wins',
-    // [ID] Inggris: Judul kolom jumlah game dimainkan.
-    lbGames: 'Games',
-    // [ID] Inggris: Status leaderboard: memuat.
-    lbLoading: 'Loading…',
-    // [ID] Inggris: Status leaderboard: diperbarui pada jam tertentu.
-    lbUpdated: (time) => `Updated ${time}`,
-    // [ID] Inggris: Status leaderboard: server tidak bisa dihubungi.
-    lbOffline: 'Leaderboard offline',
-    // [ID] Inggris: Teks saat leaderboard masih kosong.
-    lbEmpty: 'No scores yet. Be the first!',
-    // [ID] Inggris: Info jumlah skor yang tersimpan di perangkat dan belum terkirim.
-    lbPending: (n) => `${n} score(s) saved on this device, sent when the leaderboard is back online.`,
-    // [ID] Inggris: Judul dialog dan label Nama tim.
-    teamName: 'Team name',
-    // [ID] Inggris: Petunjuk di dialog nama tim.
-    teamPrompt: 'Enter a team or player name for the leaderboard.',
-    // [ID] Inggris: Error: panjang nama tidak sah (menerima batas min dan maks).
-    teamInvalid: (min, max) => `The name must be ${min}–${max} characters.`,
-    // [ID] Inggris: Tombol Simpan.
-    save: 'Save',
-    // [ID] Inggris: Tombol Batal.
-    cancel: 'Cancel',
-    // [ID] Inggris: Tombol Ganti nama tim.
-    change: 'Change',
-    // [ID] Inggris: Kata "Poin" (kotak skor dan judul rincian).
-    points: 'Points',
-    // [ID] Inggris: Baris rincian: jumlah langkah x poin per langkah.
-    ptMoves: (n, each) => `Moves (${n} × ${each})`,
-    // [ID] Inggris: Baris rincian: bonus menang.
-    ptWin: 'Win bonus',
-    // [ID] Inggris: Baris rincian: total.
-    ptTotal: 'Total',
-    // [ID] Inggris: Tombol Kirim skor.
-    submitScore: 'Submit score',
-    // [ID] Inggris: Status: sedang mengirim.
-    submitting: 'Sending…',
-    // [ID] Inggris: Status berhasil: poin game, peringkat, dan total tim.
-    submitted: (pts, rank, total) => `Submitted! +${pts} points · rank #${rank} · team total ${total}`,
-    // [ID] Inggris: Status: terlalu cepat (batas 1 kiriman per 10 detik).
-    submitRate: 'Too fast. Try again in a few seconds.',
-    // [ID] Inggris: Status: game ini sudah pernah dikirim.
-    submitDup: 'This game was already submitted.',
-    // [ID] Inggris: Status: server menolak skor.
-    submitRejected: 'The server rejected this score.',
-    // [ID] Inggris: Status: server offline, skor disimpan untuk dikirim nanti.
-    submitOffline: 'Leaderboard offline. Score saved on this device and sent later.',
-    // [ID] Inggris: Toast: skor tertunda berhasil dikirim.
-    pendingSent: 'Saved score sent.',
-    // [ID] Inggris: Judul tabel "Cara dapat poin".
-    pointsHow: 'How to score',
-    // [ID] Inggris: Penjelasan di bawah tabel poin.
-    pointsNote: 'Every move you make earns points, and winning earns a bonus. Harder levels pay more.',
-    // [ID] Inggris: Label poin per langkah di kartu level.
-    ptsPerMove: (n) => `+${n} pts/move`,
-    // [ID] Inggris: Judul kolom Level di tabel poin.
-    ptLevel: 'Level',
-    // [ID] Inggris: Judul kolom poin per Langkah.
-    ptColMove: 'Move',
-    // [ID] Inggris: Judul kolom bonus Menang.
-    ptColWin: 'Win',
-    // [ID] Inggris: Judul halaman admin.
-    adminTitle: 'Points Admin',
-    // [ID] Inggris: Label kolom kunci admin.
-    adminKey: 'Admin key',
-    // [ID] Inggris: Petunjuk kolom kunci admin.
-    adminKeyHint: 'The ADMIN_KEY value from Vercel. Kept only in this tab.',
-    // [ID] Inggris: Tombol Masuk di halaman admin.
-    adminLoad: 'Sign in',
-    // [ID] Inggris: Judul bagian poin dasar.
-    adminPoints: 'Base points',
-    // [ID] Inggris: Judul bagian pengali per level.
-    adminMultipliers: 'Multiplier per level',
-    // [ID] Inggris: Label kolom poin per langkah.
-    adminMove: 'Per move',
-    // [ID] Inggris: Label kolom bonus menang.
-    adminWin: 'Win bonus',
-    // [ID] Inggris: Judul pratinjau tabel poin.
-    adminPreview: 'Preview',
-    // [ID] Inggris: Tombol Simpan poin.
-    adminSave: 'Save points',
-    // [ID] Inggris: Tombol Kembalikan default.
-    adminReset: 'Restore defaults',
-    // [ID] Inggris: Catatan: perubahan hanya berlaku untuk game berikutnya.
-    adminNote: 'Changes apply to games submitted after saving. Existing team totals stay as they are.',
-    // [ID] Inggris: Status: poin tersimpan.
-    adminSaved: 'Points saved.',
-    // [ID] Inggris: Status: poin kembali ke default.
-    adminResetDone: 'Points restored to the defaults.',
-    // [ID] Inggris: Error: ada nilai yang tidak sah.
-    adminInvalid: 'Some values are invalid. Points: whole numbers 0–100000. Multipliers: 0–100, at most 2 decimals.',
-    // [ID] Inggris: Error: kunci admin salah.
-    adminUnauthorized: 'Wrong admin key.',
-    // [ID] Inggris: Error: terkunci 10 menit setelah terlalu banyak percobaan salah.
-    adminLocked: 'Too many wrong attempts. Try again in 10 minutes.',
-    // [ID] Inggris: Error: ADMIN_KEY belum diset di Vercel.
-    adminDisabled: 'Admin is off: set ADMIN_KEY in Vercel and redeploy.',
-    // [ID] Inggris: Error: server tidak bisa dihubungi.
-    adminOffline: 'Cannot reach the server.',
-    // [ID] Inggris: Pertanyaan konfirmasi kembalikan default.
-    adminResetConfirm: 'Restore every point value to the default?',
-    // [ID] Inggris: Tombol kembali ke game (cadangan).
-    adminBack: 'Back to game',
   },
 };
 

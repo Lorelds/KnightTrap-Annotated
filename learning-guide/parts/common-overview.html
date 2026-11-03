@@ -3,11 +3,11 @@
 <h3>Apa yang kita buat</h3>
 <p><b>Knight Trap</b> adalah varian dari permainan papan <i>Isolation</i> (1972). Dua knight ada di papan 7 × 7. Pada gilirannya, pemain:</p>
 <ol>
-  <li><b>Lompat</b>: menggerakkan knight seperti kuda catur (huruf L) ke kotak terbuka.</li>
+  <li><b>Lompat</b>: menggerakkan knight seperti kuda catur (huruf L) ke kotak yang belum terbakar atau dijebak.</li>
   <li><b>Bakar</b>: kotak yang ditinggalkan langsung terbakar dan tidak bisa dipakai lagi.</li>
   <li><b>Jebak</b>: menghancurkan satu kotak terbuka lain di mana pun.</li>
 </ol>
-<p>Pemain yang <b>tidak punya lompatan legal</b> pada gilirannya kalah. Game ini dibuat untuk <b>rally games</b> (NPLC Universitas Ciputra, tema <i>Human vs AI</i>), jadi aturannya harus bisa dijelaskan dalam satu menit, satu game selesai dalam beberapa menit, dan lawan AI-nya tidak boleh terlalu mudah.</p>
+<p>Pemain yang <b>tidak punya lompatan legal</b> pada gilirannya kalah. Di versi kode, mendarat tepat di kotak knight musuh juga langsung menang (<b>makan</b>, tambahan di luar proposal; lihat bab "Tambahan di Luar Proposal"). Game ini dibuat untuk <b>rally games</b> (NPLC Universitas Ciputra, tema <i>Human vs AI</i>), jadi aturannya harus bisa dijelaskan dalam satu menit, satu game selesai dalam beberapa menit, dan lawan AI-nya tidak boleh terlalu mudah.</p>
 
 <h3>Masalah yang diselesaikan (Bab 1.2)</h3>
 <p>Kita harus membuat lawan AI yang (1) memilih langkah yang kuat, (2) cukup cepat untuk browser, dan (3) punya beberapa tingkat kesulitan. Ada dua tantangan utama:</p>
@@ -20,29 +20,29 @@
 <h3>Peta file kode</h3>
 <table class="t">
   <tr><th>File</th><th>Isi</th><th>Pemilik utama (Timeline)</th></tr>
-  <tr><td><code>js/config.js</code></td><td>Konstanta: ukuran papan, posisi awal, kedalaman tiap level, batas AI, poin</td><td>Shatrya (setup), Louis (AI)</td></tr>
-  <tr><td><code>js/rules.js</code></td><td>Aturan game: lompatan legal, bakar, jebakan, cek kalah. Tidak menyentuh DOM</td><td>Shatrya</td></tr>
+  <tr><td><code>js/config.js</code></td><td>Konstanta: ukuran papan, posisi awal, kedalaman tiap level, lama satu giliran, batas AI</td><td>Shatrya (setup), Louis (AI)</td></tr>
+  <tr><td><code>js/rules.js</code></td><td>Aturan game: lompatan legal, bakar, jebakan, makan, cek kalah. Tidak menyentuh DOM</td><td>Shatrya</td></tr>
   <tr><td><code>js/ai.js</code></td><td>Minimax + Alpha-Beta, BFS, DFS, fungsi evaluasi, pemain acak &amp; greedy</td><td>Louis (search), Clarrence (BFS), Shatrya (DFS)</td></tr>
   <tr><td><code>js/ai.worker.js</code>, <code>js/ai-client.js</code></td><td>Menjalankan AI di Web Worker supaya tampilan tidak macet</td><td>Louis</td></tr>
-  <tr><td><code>js/game.js</code></td><td>Alur giliran: input pemain, giliran AI, animasi, game over</td><td>Shatrya &amp; Louis</td></tr>
-  <tr><td><code>js/board.js</code>, <code>js/fx.js</code>, <code>css/style.css</code>, <code>index.html</code></td><td>Tampilan papan, knight, efek api/jebakan, layout</td><td>Clarrence</td></tr>
-  <tr><td><code>js/main.js</code>, <code>js/i18n.js</code>, <code>js/audio.js</code></td><td>Layar menu, pengaturan, panel statistik, teks dua bahasa, suara</td><td>Clarrence &amp; Louis</td></tr>
+  <tr><td><code>js/game.js</code></td><td>Alur giliran: input pemain, giliran AI, penghitung waktu giliran, game over</td><td>Shatrya &amp; Louis</td></tr>
+  <tr><td><code>js/board.js</code>, <code>css/style.css</code>, <code>index.html</code></td><td>Tampilan papan, knight, penanda lompatan, layout</td><td>Clarrence</td></tr>
+  <tr><td><code>js/main.js</code>, <code>js/i18n.js</code></td><td>Layar menu, pengaturan, Cara Bermain, panel statistik, teks dua bahasa</td><td>Clarrence &amp; Louis</td></tr>
   <tr><td><code>js/net.js</code></td><td>Multiplayer online (PeerJS)</td><td>Tambahan di luar proposal</td></tr>
-  <tr><td><code>js/scoring.js</code>, <code>api/*</code>, <code>admin.html</code></td><td>Poin, leaderboard, halaman admin (fitur rally)</td><td>Tambahan di luar proposal</td></tr>
-  <tr><td><code>tests/run.mjs</code></td><td>Semua pengujian Bab 2.2</td><td>Louis, Clarrence (pengujian)</td></tr>
+  <tr><td><code>tests/run.mjs</code></td><td>Semua pengujian Bab 2.2, plus uji makan dan waktu giliran</td><td>Louis, Clarrence (pengujian)</td></tr>
 </table>
 <div class="box tip"><p><b>Repo dengan komentar per baris.</b> Folder <code>KnightTrap-Annotated</code> berisi kode yang sama persis, tetapi setiap baris diberi komentar bahasa Indonesia. Pakai repo itu untuk belajar; potongan kode di guide ini diambil dari repo asli <code>KnightTrap</code> supaya nomor barisnya cocok dengan kode yang dijalankan.</p></div>
 
 <h2>Aturan Game → Kode (Proposal Bab 2.1)</h2>
-<p>Setiap aturan di proposal punya tempat yang jelas di <code>js/rules.js</code>. File ini adalah <b>satu-satunya sumber aturan</b>: tampilan, AI, mode online, dan server leaderboard semuanya memakai fungsi yang sama.</p>
+<p>Setiap aturan di proposal punya tempat yang jelas di <code>js/rules.js</code>. File ini adalah <b>satu-satunya sumber aturan</b>: tampilan, AI, dan mode online semuanya memakai fungsi yang sama.</p>
 <table class="t">
   <tr><th>Aturan proposal</th><th>Kode</th></tr>
   <tr><td>Papan 7 × 7, array 49 kotak (kosong / terbakar / jebakan) + posisi 2 knight</td><td><code>createState()</code>, konstanta <code>EMPTY</code>, <code>BURNED</code>, <code>TRAP</code></td></tr>
   <tr><td>(a) Knight bergerak huruf L</td><td><code>JUMPS</code> dan <code>NEIGHBORS</code> (dihitung sekali di awal)</td></tr>
   <tr><td>(b) Kotak yang ditinggalkan terbakar</td><td><code>applyJump()</code></td></tr>
   <tr><td>(c) Hancurkan satu kotak terbuka</td><td><code>applyTrap()</code>; validasi di <code>validateMove()</code></td></tr>
-  <tr><td>(d) Tidak boleh mendarat di kotak terbakar, jebakan, atau kotak lawan</td><td><code>isOpen()</code> dipakai oleh <code>legalJumps()</code></td></tr>
+  <tr><td>(d) Tidak boleh mendarat di kotak terbakar atau jebakan. Proposal juga melarang kotak lawan; di kode, mendarat di sana = makan (tambahan)</td><td><code>legalJumps()</code> (cek <code>cells[n] === EMPTY</code>); <code>isOpen()</code> untuk kotak jebakan</td></tr>
   <tr><td>(e) Tidak punya lompatan legal = kalah</td><td><code>winner()</code> memakai <code>canMove()</code></td></tr>
+  <tr><td>Tambahan: dimakan = kalah, langkah makan tanpa jebakan</td><td><code>winner()</code> (<code>pos[0] === pos[1]</code>), <code>validateMove()</code></td></tr>
 </table>
 
 <h3>Representasi papan</h3>
@@ -61,7 +61,7 @@
 {{fn:js/rules.js:applyJump}}
 {{fn:js/rules.js:applyTrap}}
 {{fn:js/rules.js:winner}}
-<div class="box key"><p><b>Kenapa <code>winner()</code> mengembalikan <code>s.turn ^ 1</code>?</b> <code>^</code> adalah XOR. <code>0 ^ 1 = 1</code> dan <code>1 ^ 1 = 0</code>, jadi ini cara singkat menulis "pemain lainnya". Kalau yang sedang jalan tidak bisa bergerak, lawannya menang.</p></div>
+<div class="box key"><p><b>Kenapa <code>winner()</code> mengembalikan <code>s.turn ^ 1</code>?</b> <code>^</code> adalah XOR. <code>0 ^ 1 = 1</code> dan <code>1 ^ 1 = 0</code>, jadi ini cara singkat menulis "pemain lainnya". Kalau yang sedang jalan tidak bisa bergerak, atau baru saja dimakan (kedua knight di kotak yang sama), lawannya menang.</p></div>
 
 <h2>Alur Satu Giliran di Kode</h2>
 <p>Bagian ini menghubungkan semua file. Setiap anggota harus bisa menceritakan alur ini saat presentasi.</p>
@@ -74,12 +74,12 @@
   </g>
   <g>
     <rect x="70" y="4" width="380" height="40" rx="8" fill="#dbe7ff"/><text x="260" y="22" text-anchor="middle" font-weight="700">1. Pemain klik kotak</text><text x="260" y="37" text-anchor="middle" fill="#5f5850">board.js: BoardView memanggil onCell(sq)</text>
-    <rect x="70" y="64" width="380" height="40" rx="8" fill="#dbe7ff"/><text x="260" y="82" text-anchor="middle" font-weight="700">2. Game.handleCell (game.js)</text><text x="260" y="97" text-anchor="middle" fill="#5f5850">fase 'jump': cek legalJumps → applyJump (bakar)</text>
+    <rect x="70" y="64" width="380" height="40" rx="8" fill="#dbe7ff"/><text x="260" y="82" text-anchor="middle" font-weight="700">2. Game.handleCell (game.js)</text><text x="260" y="97" text-anchor="middle" fill="#5f5850">fase 'jump': legalJumps → applyJump (bakar); makan = selesai</text>
     <rect x="70" y="124" width="380" height="40" rx="8" fill="#dbe7ff"/><text x="260" y="142" text-anchor="middle" font-weight="700">3. Klik kedua: kotak jebakan</text><text x="260" y="157" text-anchor="middle" fill="#5f5850">fase 'trap': isOpen → applyTrap → endTurn</text>
     <rect x="70" y="184" width="380" height="40" rx="8" fill="#f4ede3"/><text x="260" y="202" text-anchor="middle" font-weight="700">4. Game.nextTurn</text><text x="260" y="217" text-anchor="middle" fill="#5f5850">winner(state)? kalau ada → finish(). Kalau tidak → giliran AI</text>
     <rect x="70" y="244" width="380" height="40" rx="8" fill="#ffe3d3"/><text x="260" y="262" text-anchor="middle" font-weight="700">5. Game.runAi → think() (ai-client.js)</text><text x="260" y="277" text-anchor="middle" fill="#5f5850">kirim posisi ke Web Worker</text>
     <rect x="70" y="304" width="380" height="40" rx="8" fill="#ffe3d3"/><text x="260" y="322" text-anchor="middle" font-weight="700">6. search() di ai.js (di dalam worker)</text><text x="260" y="337" text-anchor="middle" fill="#5f5850">Minimax + Alpha-Beta, evaluasi = BFS + DFS</text>
-    <rect x="70" y="364" width="380" height="40" rx="8" fill="#ffe3d3"/><text x="260" y="382" text-anchor="middle" font-weight="700">7. Hasil: { move, nodes, cutoffs, timeMs, … }</text><text x="260" y="397" text-anchor="middle" fill="#5f5850">ui.stats() isi panel "Otak AI"; playMove() animasi langkah AI</text>
+    <rect x="70" y="364" width="380" height="40" rx="8" fill="#ffe3d3"/><text x="260" y="382" text-anchor="middle" font-weight="700">7. Hasil: { move, nodes, cutoffs, timeMs, … }</text><text x="260" y="397" text-anchor="middle" fill="#5f5850">ui.stats() isi panel "Statistik AI"; playMove() mainkan langkah AI</text>
     <rect x="70" y="424" width="380" height="40" rx="8" fill="#f4ede3"/><text x="260" y="442" text-anchor="middle" font-weight="700">8. Kembali ke nextTurn</text><text x="260" y="457" text-anchor="middle" fill="#5f5850">giliran pemain lagi, atau game over</text>
   </g>
 </svg>
@@ -90,7 +90,7 @@
 <p>Perhatikan dua pengaman di <code>runAi</code>: (1) kalau AI terlalu cepat (Easy), tampilan menunggu minimal 450 ms supaya tidak terasa "langsung"; (2) kalau AI gagal atau mengembalikan langkah tidak sah, game memakai langkah acak yang legal, jadi game tidak pernah macet.</p>
 {{fn:js/ai-client.js:think}}
 {{lines:js/ai.worker.js:5:13}}
-<div class="box tip"><p><b>Kenapa Web Worker?</b> JavaScript di browser berjalan di satu thread. Kalau Expert berpikir 1–2 detik di thread utama, animasi dan tombol akan membeku. Worker menjalankan <code>search()</code> di thread terpisah, jadi papan tetap hidup saat AI berpikir.</p></div>
+<div class="box tip"><p><b>Kenapa Web Worker?</b> JavaScript di browser berjalan di satu thread. Kalau Expert berpikir 1–2 detik di thread utama, tombol dan penghitung waktu akan membeku. Worker menjalankan <code>search()</code> di thread terpisah, jadi papan tetap hidup saat AI berpikir.</p></div>
 
 <h2>Konsep AI yang Wajib Dipahami Semua Anggota</h2>
 <p>Dosen bisa bertanya ke siapa saja. Bagian ini adalah dasar yang harus dikuasai semua anggota, walaupun detailnya milik anggota lain.</p>
@@ -119,6 +119,7 @@
 {{fn:js/ai.js:evaluate}}
 <div class="box key"><p><b>Inti fungsi evaluasi</b> (skor dari sudut pandang P1, lalu dibalik tandanya untuk P2):</p>
 <ul>
+<li>Cek dulu posisi yang sudah pasti: yang jalan sudah dimakan atau tidak bisa lompat = kalah (<code>WIN − ply</code>); yang jalan bisa langsung makan = menang di ply berikutnya (<code>WIN − ply − 1</code>).</li>
 <li>Kalau papan sudah terbelah (DFS): <code>skor = (areaP1 − areaP2) × 100</code>.</li>
 <li>Kalau belum: <code>skor = selisih wilayah (BFS) + 0,5 × selisih mobilitas</code>. Mobilitas = jumlah lompatan legal saat ini.</li>
 </ul>

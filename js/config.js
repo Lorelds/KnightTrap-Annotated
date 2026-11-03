@@ -24,6 +24,13 @@ export const DIFFICULTY = Object.freeze({
   expert: 4,
 });
 
+// Longest a player may take for one turn, the jump and the trap together. Change the length here.
+// [ID] Batas waktu satu giliran manusia: 15 detik untuk lompat DAN pasang jebakan. Ubah angkanya di sini. (Bukan bagian proposal; AI tetap pakai batas 4 detiknya sendiri.)
+export const TURN_SECONDS = 15;
+// How long past the limit the online host waits for the guest's own move before playing one for it.
+// [ID] Mode online: host menunggu 1500 ms (1,5 detik) lewat batas waktu sebelum memainkan langkah acak untuk tamu yang diam.
+export const TURN_GRACE_MS = 1500;
+
 // [ID] Pengaturan AI.
 export const AI = Object.freeze({
   // [ID] Batas waktu berpikir AI: 4000 ms = 4 detik per langkah (sesuai proposal).
@@ -50,39 +57,4 @@ export const NET = Object.freeze({
   heartbeatMs: 3000,
   // [ID] Kalau 12 detik tidak ada kabar dari lawan, koneksi dianggap putus.
   timeoutMs: 12000,
-});
-
-// Default Single Player points. Every value is multiplied by the level's multiplier.
-// An admin can replace these at /admin.html; the server then scores with the saved copy.
-// Local and Online games give no points.
-// [ID] Poin default untuk mode Single Player. Admin bisa menggantinya lewat /admin.html.
-export const SCORING = Object.freeze({
-  // [ID] Poin untuk setiap langkah pemain (sebelum dikali pengali level).
-  move: 10, // each human move
-  // [ID] Bonus kalau pemain mengalahkan AI (sebelum dikali pengali level).
-  win: 200, // beating the AI
-  // [ID] Pengali poin per level: Easy x1, Medium x1.5, Hard x2, Expert x2.5.
-  multiplier: Object.freeze({ easy: 1, medium: 1.5, hard: 2, expert: 2.5 }),
-});
-
-// Bounds the admin page and the server accept for SCORING values.
-// [ID] Batas nilai yang boleh diisi admin: poin maks. 100000, pengali maks. 100.
-export const SCORING_LIMITS = Object.freeze({ pointsMax: 100000, multiplierMax: 100 });
-
-// [ID] Pengaturan leaderboard.
-export const LEADERBOARD = Object.freeze({
-  // [ID] Tampilkan 20 tim teratas.
-  top: 20,
-  // [ID] Leaderboard diperbarui otomatis setiap 15 detik selama layarnya terbuka.
-  pollMs: 15000,
-  // [ID] Satu IP hanya boleh mengirim skor sekali per 10 detik.
-  rateLimitSec: 10,
-  // [ID] Nama tim minimal 2 karakter.
-  nameMin: 2,
-  // [ID] Nama tim maksimal 20 karakter.
-  nameMax: 20,
-  // [ID] Setelah 10 kali salah kunci admin dari satu IP, IP itu dikunci.
-  adminMaxFails: 10, // wrong admin keys per IP before a lockout
-  // [ID] Lama kunci: 600 detik = 10 menit.
-  adminLockSec: 600,
 });
